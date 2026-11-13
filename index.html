@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1026">
+<title>RASHKAPOLIS — A city that grows with everything we build</title>
+<meta name="description" content="Rashkapolis: a living 3D city where every tower is a real project, desk or channel.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky-a:#0b1026; --sky-b:#1b2450; --ground:#11162e; --road:#0a0e22;
+  --teal:#2dd4bf; --gold:#E9B44C; --warm:#ffd38a;
+  --glass:rgba(13,18,40,.72); --line:rgba(255,255,255,.10); --line-strong:rgba(233,180,76,.35);
+  --text:#eef1ff; --muted:#9aa3c7; --radius:16px;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --ticker-h:38px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--sky-a);color:var(--text);
+  font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.vignette{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(5,7,20,.55) 100%)}
+
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 18px 50px rgba(2,4,16,.45), inset 0 1px 0 rgba(255,255,255,.05)}
+.caps{font-size:10.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- Title block ---------- */
+#title{position:fixed;left:20px;top:calc(20px + var(--safe-t));padding:16px 18px 14px;max-width:340px;z-index:5}
+#title h1{font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:26px;letter-spacing:.22em;line-height:1;
+  background:linear-gradient(92deg,#fff 0%,var(--warm) 55%,var(--gold) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+#title p{margin-top:8px;font-size:13px;color:#c9cfee;line-height:1.4}
+#counts-btn{margin-top:12px;display:inline-flex;align-items:center;gap:8px;padding:7px 12px 7px 10px;border-radius:999px;
+  border:1px solid var(--line-strong);background:rgba(233,180,76,.08);color:var(--warm);font-size:12px;font-weight:500;
+  transition:background .2s,transform .2s}
+#counts-btn:hover{background:rgba(233,180,76,.16);transform:translateY(-1px)}
+#counts-btn svg{width:14px;height:14px}
+
+/* ---------- Top-right cluster ---------- */
+#topright{position:fixed;right:20px;top:calc(20px + var(--safe-t));display:flex;flex-direction:column;align-items:flex-end;gap:10px;z-index:5}
+#mode{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:999px;position:relative}
+#mode button{position:relative;z-index:1;padding:7px 16px;text-align:center;white-space:nowrap;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);transition:color .25s}
+#mode button[aria-pressed="true"]{color:#0b1026}
+#mode .thumb{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:999px;
+  background:linear-gradient(90deg,var(--teal),#7ee8d6);transition:transform .35s cubic-bezier(.2,.8,.2,1),background .35s}
+#mode[data-mode="portfolio"] .thumb{transform:translateX(100%);background:linear-gradient(90deg,var(--gold),var(--warm))}
+#chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.chip{padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:3px;min-width:74px}
+.chip b{white-space:nowrap;font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:16px;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+.chip span{font-size:9.5px}
+
+/* ---------- Ticker ---------- */
+#ticker{position:fixed;left:0;right:0;bottom:0;height:calc(var(--ticker-h) + var(--safe-b));padding-bottom:var(--safe-b);
+  background:linear-gradient(180deg,rgba(9,12,30,.55),rgba(9,12,30,.9));border-top:1px solid var(--line);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);overflow:hidden;z-index:4;display:flex;align-items:center}
+#ticker::before,#ticker::after{content:"";position:absolute;top:0;bottom:0;width:60px;z-index:1;pointer-events:none}
+#ticker::before{left:0;background:linear-gradient(90deg,#0a0d20,transparent)}
+#ticker::after{right:0;background:linear-gradient(270deg,#0a0d20,transparent)}
+#ticker-track{display:inline-flex;white-space:nowrap;will-change:transform;animation:marquee var(--ticker-dur,60s) linear infinite}
+#ticker-track span{font-size:12.5px;color:#d5daf5;padding-right:0}
+#ticker-track i{font-style:normal;color:var(--gold);padding:0 14px}
+@keyframes marquee{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+
+/* ---------- Info panel ---------- */
+#panel{position:fixed;right:20px;top:calc(150px + var(--safe-t));width:348px;max-height:calc(100vh - 150px - var(--ticker-h) - 36px - var(--safe-t));
+  overflow:auto;padding:20px 20px 18px;z-index:6;opacity:0;transform:translateX(24px);pointer-events:none;
+  transition:opacity .3s ease,transform .4s cubic-bezier(.2,.8,.2,1);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+#panel.open{opacity:1;transform:none;pointer-events:auto}
+#panel .grab{display:none}
+#panel .x,#modal .x{position:absolute;right:12px;top:12px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  color:var(--muted);border:1px solid var(--line);transition:color .2s,background .2s}
+#panel .x:hover,#modal .x:hover{color:#fff;background:rgba(255,255,255,.08)}
+#p-district{display:inline-flex;align-items:center;gap:7px}
+#p-district::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dot,var(--teal));box-shadow:0 0 10px var(--dot,var(--teal))}
+#p-name{font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:21px;line-height:1.2;margin:8px 34px 8px 0}
+#p-role{font-size:13.5px;line-height:1.55;color:#cfd5f3}
+.sect{margin-top:18px}
+.sect h3{margin-bottom:9px}
+#p-stats{list-style:none;display:flex;flex-wrap:wrap;gap:7px}
+#p-stats li{font-size:12.5px;padding:6px 10px;border-radius:10px;background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.22);color:#d9fff8}
+#p-log{list-style:none;display:flex;flex-direction:column;gap:10px}
+#p-log li{display:grid;grid-template-columns:62px 1fr;gap:10px;font-size:13px;line-height:1.45;color:#dfe3fa}
+#p-log time{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);padding-top:2px}
+#p-private{display:none;margin-top:18px;padding:16px;border-radius:12px;border:1px dashed var(--line-strong);background:rgba(233,180,76,.06);
+  font-size:13.5px;color:var(--warm);align-items:center;gap:10px}
+#p-private svg{width:18px;height:18px;flex:none}
+#p-visit{display:none;margin-top:18px;width:100%;justify-content:center;align-items:center;gap:8px;padding:12px 16px;border-radius:12px;
+  background:linear-gradient(90deg,var(--gold),var(--warm));color:#1a1305;font-weight:600;font-size:14px;text-decoration:none;
+  transition:transform .2s,box-shadow .2s;box-shadow:0 8px 24px rgba(233,180,76,.25)}
+#p-visit:hover{transform:translateY(-1px);box-shadow:0 12px 30px rgba(233,180,76,.35)}
+
+/* ---------- Modal ---------- */
+#modal-wrap{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:rgba(4,6,18,.6);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .3s}
+#modal-wrap.open{opacity:1;pointer-events:auto}
+#modal{position:relative;width:min(560px,100%);max-height:min(82vh,720px);overflow:auto;padding:26px 26px 22px;
+  transform:translateY(14px) scale(.98);transition:transform .4s cubic-bezier(.2,.8,.2,1)}
+#modal-wrap.open #modal{transform:none}
+#modal h2{font-family:"Space Grotesk",sans-serif;font-size:22px;font-weight:600;margin:6px 34px 6px 0}
+#modal .lede{font-size:13.5px;color:#cfd5f3;line-height:1.55}
+#m-total{margin:18px 0 6px;display:flex;align-items:baseline;gap:10px}
+#m-total b{font-family:"Space Grotesk",sans-serif;font-size:38px;font-weight:700;font-variant-numeric:tabular-nums;
+  background:linear-gradient(92deg,#fff,var(--warm) 60%,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+#m-sources{list-style:none;margin-top:10px;border-top:1px solid var(--line)}
+#m-sources li{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.45;color:#e3e7fb}
+#m-sources li::before{content:"";flex:none;margin-top:6px;width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px var(--teal)}
+#m-sources li.uncounted{color:var(--muted)}
+#m-sources li.uncounted::before{background:transparent;border:1px solid var(--muted);box-shadow:none}
+#m-scale{margin-top:16px;padding:14px 16px;border-radius:12px;background:rgba(233,180,76,.07);border:1px solid rgba(233,180,76,.25);
+  font-size:13px;line-height:1.6;color:#f3e6c8}
+
+/* ---------- Truth Gate banner ---------- */
+#truth{position:fixed;left:50%;top:calc(16px + var(--safe-t));transform:translateX(-50%);z-index:40;display:none;
+  width:min(680px,calc(100% - 32px));padding:16px 18px;border-radius:14px;background:rgba(60,10,16,.94);border:1px solid #f87171;
+  box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#truth.show{display:block}
+#truth b{display:block;font-family:"Space Grotesk",sans-serif;font-size:15px;letter-spacing:.12em;color:#fecaca;margin-bottom:8px}
+#truth ul{margin-left:18px;font-size:13.5px;line-height:1.6;color:#ffe4e4}
+
+#hint{position:fixed;left:50%;bottom:calc(var(--ticker-h) + var(--safe-b) + 14px);transform:translateX(-50%);z-index:3;
+  padding:7px 14px;border-radius:999px;font-size:11.5px;color:#c9cfee;pointer-events:none;transition:opacity .8s;white-space:nowrap}
+#hint.gone{opacity:0}
+
+/* ---------- Mobile: designed, not shrunk ---------- */
+@media (max-width:760px){
+  #title{left:12px;top:calc(12px + var(--safe-t));padding:12px 14px 11px;max-width:calc(100% - 24px)}
+  #title h1{font-size:19px;letter-spacing:.2em}
+  #title p{font-size:11.5px;margin-top:6px}
+  #counts-btn{margin-top:9px;font-size:11px;padding:6px 10px 6px 9px}
+  #title{padding-bottom:12px}
+  #topright{position:static}
+  #mode{position:fixed;right:22px;top:calc(73px + var(--safe-t));z-index:6;background:rgba(255,255,255,.05);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  #mode button{padding:7px 10px;font-size:9.5px;letter-spacing:.1em}
+  #chips{position:fixed;left:12px;right:12px;top:calc(126px + var(--safe-t));z-index:5;gap:8px;flex-wrap:nowrap}
+  .chip{flex:1;padding:7px 10px;min-width:0;border-radius:12px}
+  .chip b{font-size:13.5px}
+  .chip span{font-size:8.5px;letter-spacing:.12em}
+  #panel{left:0;right:0;top:auto;bottom:0;width:auto;max-height:62vh;border-radius:22px 22px 0 0;border-bottom:0;
+    padding:10px 18px calc(18px + var(--safe-b));transform:translateY(105%);opacity:1;z-index:10}
+  #panel.open{transform:none}
+  #panel .grab{display:block;width:38px;height:4px;border-radius:4px;background:rgba(255,255,255,.25);margin:0 auto 12px}
+  #panel .x{top:14px}
+  #p-name{font-size:19px}
+  #modal{padding:22px 18px 18px}
+  #m-total b{font-size:32px}
+  #hint{font-size:10.5px}
+}
+@media (prefers-reduced-motion:reduce){#ticker-track{animation-duration:240s}}
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="Rashkapolis 3D city"></canvas>
+<div class="vignette"></div>
+
+<header id="title" class="glass">
+  <h1 id="t-city">RASHKAPOLIS</h1>
+  <p id="t-tag"></p>
+  <button id="counts-btn" type="button" aria-haspopup="dialog">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+    How this city counts
+  </button>
+</header>
+
+<div id="topright">
+  <div id="mode" class="glass" data-mode="hq" role="group" aria-label="View mode">
+    <span class="thumb"></span>
+    <button type="button" data-mode="hq" aria-pressed="true">HQ</button>
+    <button type="button" data-mode="portfolio" aria-pressed="false">Portfolio</button>
+  </div>
+  <div id="chips">
+    <div class="chip glass"><b id="c-pop">—</b><span class="caps">citizens</span></div>
+    <div class="chip glass"><b id="c-bld">—</b><span class="caps">buildings</span></div>
+    <div class="chip glass"><b id="c-date">—</b><span class="caps">data as of</span></div>
+  </div>
+</div>
+
+<aside id="panel" class="glass" aria-live="polite">
+  <div class="grab"></div>
+  <button class="x" type="button" aria-label="Close panel"><svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l10 10M11 1L1 11"/></svg></button>
+  <div id="p-district" class="caps"></div>
+  <h2 id="p-name"></h2>
+  <p id="p-role"></p>
+  <div id="p-private"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg><span>Private — HQ mode only</span></div>
+  <div class="sect" id="s-stats"><h3 class="caps">Stats</h3><ul id="p-stats"></ul></div>
+  <div class="sect" id="s-log"><h3 class="caps">Latest in the log</h3><ul id="p-log"></ul></div>
+  <a id="p-visit" target="_blank" rel="noopener">Visit <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+</aside>
+
+<div id="modal-wrap" role="dialog" aria-modal="true" aria-labelledby="m-title">
+  <div id="modal" class="glass">
+    <button class="x" type="button" aria-label="Close"><svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l10 10M11 1L1 11"/></svg></button>
+    <div class="caps">The honesty layer</div>
+    <h2 id="m-title">How this city counts</h2>
+    <p class="lede">Every citizen is a real follower or subscriber, counted by hand from the accounts below. Nothing is estimated.</p>
+    <div id="m-total"><b id="m-pop"></b><span class="caps">citizens</span></div>
+    <ul id="m-sources"></ul>
+    <p id="m-scale"></p>
+  </div>
+</div>
+
+<div id="truth" role="alert"><b>TRUTH GATE — CITY DATA FAILED VALIDATION</b><ul id="truth-list"></ul></div>
+<div id="hint" class="glass">Drag to orbit · tap a tower</div>
+<footer id="ticker" aria-label="City news ticker"><div id="ticker-track"></div></footer>
+
+<script id="city-data" type="application/json">
+{
+ "asOf": "2026-11-12",
+ "buildings": [
+  {
+   "beacon": "green",
+   "district": "channels",
+   "floors": 30,
+   "id": "academy",
+   "link": "https://somalienglishacademy.com",
+   "lit": 0.95,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "Word of the Day #2 (please = fadlan) posted on 3 platforms"
+    },
+    {
+     "d": "Nov 11",
+     "t": "Citizenship course + 7 games + Word Town 3D shipped"
+    },
+    {
+     "d": "Nov 10",
+     "t": "somalienglishacademy.com bought and connected"
+    }
+   ],
+   "name": "Somali English Academy",
+   "role": "The flagship: a free English academy for Somali speakers — English, explained in Somali.",
+   "stats": [
+    "100 lessons",
+    "700 words",
+    "1,300 exercises",
+    "128 civics questions",
+    "TikTok 21.4K followers"
+   ]
+  },
+  {
+   "beacon": "green",
+   "district": "team",
+   "floors": 26,
+   "id": "muse-hq",
+   "lit": 0.9,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "The owner named this tower Nuur's home — 'the best, since you are my favorite and in charge of everything'"
+    },
+    {
+     "d": "Nov 12",
+     "t": "Verified Builder's Mac cleanup folder-by-folder (+44.5 GB)"
+    },
+    {
+     "d": "Nov 12",
+     "t": "Filed the 6-part KLM care package (DSARs, ILT, DOT, goodwill)"
+    },
+    {
+     "d": "Nov 12",
+     "t": "Ran the Desktop sweep directly when MausBot went offline"
+    }
+   ],
+   "name": "Nuur Tower — Muse HQ",
+   "role": "Nuur's home — Muse, the Chief of Staff, lives here: the tower that coordinates every desk, verifies all work, and keeps the city's ledger. By the owner's order, the finest tower in Rashkapolis: a spire crown, a glass observatory, and a rooftop garden, watching over the whole city.",
+   "stats": [
+    "Home of Nuur, Chief of Staff",
+    "Runs the daily slate",
+    "Verifies every desk"
+   ]
+  },
+  {
+   "beacon": "amber",
+   "district": "team",
+   "floors": 18,
+   "id": "claude-fable",
+   "lit": 0.8,
+   "log": [
+    {
+     "d": "Nov 11",
+     "t": "Shipped academy Chunk A + Play & Learn + Word Town 3D in one day"
+    },
+    {
+     "d": "Nov 12",
+     "t": "Next job: Rashkapolis v1 (this city)"
+    }
+   ],
+   "name": "Claude — Fable Tower",
+   "role": "Writing & Engineering desk. Builds the big things: app features, long documents.",
+   "stats": [
+    "Built Citizenship Chunk A",
+    "Built 7 academy games + Word Town 3D"
+   ]
+  },
+  {
+   "beacon": "green",
+   "district": "channels",
+   "floors": 10,
+   "id": "prompt-daily",
+   "lit": 0.8,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "Episodes #18 and #19 posted"
+    }
+   ],
+   "name": "Prompt Daily",
+   "role": "Daily AI-prompt reels channel on Instagram.",
+   "stats": [
+    "19 episodes posted",
+    "4 followers (early)"
+   ]
+  },
+  {
+   "beacon": "amber",
+   "district": "channels",
+   "floors": 9,
+   "id": "know-you-know",
+   "lit": 0.7,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "Facts #11 staged for the 5 PM post"
+    },
+    {
+     "d": "Waiting",
+     "t": "YouTube uploads resume once the owner signs the channel account in"
+    }
+   ],
+   "name": "Know You Know",
+   "role": "Daily 'Did you know' facts channel — YouTube + Instagram.",
+   "stats": [
+    "129 YouTube subscribers",
+    "11 facts episodes built"
+   ]
+  },
+  {
+   "beacon": "green",
+   "district": "team",
+   "floors": 8,
+   "id": "mausbot",
+   "lit": 0.85,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "Builder cleaned the Mac: 13 apps out, 44.5 GB freed"
+    },
+    {
+     "d": "Nov 12",
+     "t": "Next: 'Academy' channel — Builder + Reviewer audit the academy site"
+    }
+   ],
+   "name": "MausBot Complex",
+   "role": "The local crew on the owner's Mac — Chief (coordinator), Builder (engineer), Reviewer (quality). Three towers, one complex.",
+   "stats": [
+    "Installed Nov 12, 2026",
+    "Phone-paired, approval cards"
+   ]
+  },
+  {
+   "beacon": "green",
+   "district": "channels",
+   "floors": 7,
+   "id": "little-hero-ig",
+   "lit": 0.7,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "Coloring Pack flip-through reel posted"
+    }
+   ],
+   "name": "Little Hero Tales",
+   "role": "Instagram for the storybook shop — daily posts run by Muse.",
+   "stats": [
+    "38 followers"
+   ]
+  },
+  {
+   "beacon": "amber",
+   "district": "business",
+   "floors": 6,
+   "id": "etsy",
+   "lit": 0.4,
+   "log": [
+    {
+     "d": "Waiting",
+     "t": "English cover swap queued; staged verdict Dec 1"
+    }
+   ],
+   "name": "LittleHeroTalesShop — Etsy",
+   "role": "Etsy shop: personalized storybooks and activity packs for Somali kids.",
+   "stats": [
+    "7 listings live",
+    "First reviews are the goal"
+   ]
+  },
+  {
+   "beacon": "amber",
+   "district": "channels",
+   "floors": 6,
+   "id": "baba-rashka",
+   "lit": 0.2,
+   "log": [
+    {
+     "d": "Waiting",
+     "t": "Alphabet song verdict pending from the owner"
+    }
+   ],
+   "name": "Baba Rashka",
+   "role": "Somali kids' songs and learning videos on YouTube — made for Toba and Tamim's generation.",
+   "stats": [
+    "Channel live",
+    "Episode 3 in production"
+   ]
+  },
+  {
+   "beacon": "none",
+   "district": "team",
+   "floors": 14,
+   "id": "chatgpt",
+   "lit": 0.6,
+   "log": [
+    {
+     "d": "Nov 10",
+     "t": "All five launch listings live and verified"
+    }
+   ],
+   "name": "ChatGPT — Atlas Desk",
+   "role": "Design & Listings desk. Etsy listings via Astra, graphics, drafts.",
+   "stats": [
+    "Listed all 7 Etsy products"
+   ]
+  },
+  {
+   "beacon": "none",
+   "district": "team",
+   "floors": 12,
+   "id": "gemini",
+   "lit": 0.5,
+   "log": [
+    {
+     "d": "Nov 11",
+     "t": "Academy demo episode visuals"
+    }
+   ],
+   "name": "Gemini — Flow Desk",
+   "role": "Video & Art desk. Flow video generation; 'Nika', the academy's Somali voice, comes from Gemini.",
+   "stats": [
+    "Voices the academy narration"
+   ]
+  },
+  {
+   "beacon": "none",
+   "district": "team",
+   "floors": 11,
+   "id": "codex",
+   "lit": 0.3,
+   "log": [
+    {
+     "d": "Nov 7",
+     "t": "Direct-control setup on the MacBook completed"
+    }
+   ],
+   "name": "Codex — Field Engineer",
+   "role": "Engineer on the owner's MacBook — local builds and fixes.",
+   "stats": [
+    "Runs on the Mac"
+   ]
+  },
+  {
+   "beacon": "green",
+   "district": "team",
+   "floors": 9,
+   "id": "elevenlabs",
+   "lit": 0.7,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "'Baro Ingiriisi' academy song generated (3:00)"
+    }
+   ],
+   "name": "ElevenLabs — Voice Studio",
+   "role": "Voice desk — narration, clones, and music generation.",
+   "stats": [
+    "Produced the academy anthem"
+   ]
+  },
+  {
+   "beacon": "green",
+   "district": "team",
+   "floors": 8,
+   "id": "notebooklm",
+   "lit": 0.7,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "Verified all Facts #11 area claims against sources"
+    }
+   ],
+   "name": "NotebookLM — The Library",
+   "role": "Head of the Library — source-grounded fact-checking for the channels.",
+   "stats": [
+    "Guards every Facts episode"
+   ]
+  },
+  {
+   "beacon": "green",
+   "district": "team",
+   "floors": 8,
+   "id": "perplexity",
+   "lit": 0.6,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "Part of the EU261 team verdict research"
+    }
+   ],
+   "name": "Perplexity — Fact Desk",
+   "role": "Fact-checking desk — every big claim gets cross-checked here.",
+   "stats": [
+    "Cross-checks the team's verdicts"
+   ]
+  },
+  {
+   "beacon": "none",
+   "district": "team",
+   "floors": 8,
+   "id": "deepseek",
+   "lit": 0.4,
+   "log": [
+    {
+     "d": "Nov 10",
+     "t": "Privacy + terms drafts passed 60+ verification checks"
+    }
+   ],
+   "name": "DeepSeek — Reserve Auditor",
+   "role": "Reserve auditor and first free drafting desk — legal pages, first drafts.",
+   "stats": [
+    "Drafted the academy's legal pages"
+   ]
+  },
+  {
+   "beacon": "none",
+   "district": "team",
+   "floors": 8,
+   "id": "grok",
+   "lit": 0.3,
+   "log": [
+    {
+     "d": "Daily",
+     "t": "Buzz scans for the news brief"
+    }
+   ],
+   "name": "Grok — Live Buzz",
+   "role": "Live buzz desk — what's happening on X right now (facts always cross-checked).",
+   "stats": [
+    "Feeds the AI News Brief"
+   ]
+  },
+  {
+   "beacon": "amber",
+   "district": "team",
+   "floors": 7,
+   "id": "kimi",
+   "lit": 0.3,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "MausBot connection explained; owner's call pending"
+    }
+   ],
+   "name": "Kimi — Long-Document Analyst",
+   "role": "Long-document analyst (probationary desk) — huge files, patient reading.",
+   "stats": [
+    "256k context on the big model"
+   ]
+  },
+  {
+   "beacon": "none",
+   "district": "team",
+   "floors": 6,
+   "id": "canva",
+   "lit": 0.3,
+   "log": [
+    {
+     "d": "Nov 11",
+     "t": "Academy brand assets finalized"
+    }
+   ],
+   "name": "Canva — Layout Desk",
+   "role": "Layout & print desk — covers, carousels, brand assets.",
+   "stats": [
+    "Made the academy FB cover"
+   ]
+  },
+  {
+   "beacon": "amber",
+   "district": "business",
+   "floors": 5,
+   "id": "kdp",
+   "lit": 0.3,
+   "log": [
+    {
+     "d": "Nov 7",
+     "t": "Book 2 (Somali Safari Activity Book) submitted for review"
+    }
+   ],
+   "name": "KDP Bookstore",
+   "role": "Amazon KDP — the printed storybook line.",
+   "stats": [
+    "Book 1 live: $9.99",
+    "Book 2 in review"
+   ]
+  },
+  {
+   "beacon": "none",
+   "district": "channels",
+   "floors": 5,
+   "id": "after-dark",
+   "lit": 0.15,
+   "log": [
+    {
+     "d": "Nov",
+     "t": "Launch sequence in progress"
+    }
+   ],
+   "name": "After Dark Files",
+   "role": "Late-night mystery storytelling channel on TikTok.",
+   "stats": [
+    "Channel live"
+   ]
+  },
+  {
+   "beacon": "none",
+   "district": "business",
+   "floors": 10,
+   "id": "vault",
+   "lit": 0.28,
+   "log": [
+    {
+     "d": "Weekly",
+     "t": "$150/week going in"
+    }
+   ],
+   "name": "The Vault",
+   "role": "The travel & emergency fund, as a tower of gold light. It fills as the savings grow.",
+   "stats": [
+    "$2,202.40 of $8,000 (Nov 9)"
+   ]
+  },
+  {
+   "beacon": "green",
+   "district": "center",
+   "floors": 12,
+   "id": "lighthouse",
+   "lit": 1.0,
+   "log": [
+    {
+     "d": "Nov 12",
+     "t": "Founded Rashkapolis"
+    }
+   ],
+   "name": "The Owner's Lighthouse",
+   "role": "Abdirashid 'Rashka' Abi — the owner. Everything amber or red in this city is waiting on one person: him.",
+   "stats": [
+    "Founded October 2026",
+    "One man, one growing city"
+   ]
+  }
+ ],
+ "city": "RASHKAPOLIS",
+ "futurePlots": [
+  {
+   "name": "Future App — Plot 01",
+   "note": "Reserved for the next app he builds"
+  },
+  {
+   "name": "Future App — Plot 02",
+   "note": "Reserved"
+  },
+  {
+   "name": "Future App — Plot 03",
+   "note": "Reserved"
+  }
+ ],
+ "owner": "Abdirashid 'Rashka' Abi",
+ "population": {
+  "sources": [
+   "TikTok @somalienglishacademy: 21,400 followers (checked Nov 11, 2026)",
+   "YouTube @KnowYouKnowHQ: 129 subscribers (checked Nov 9, 2026)",
+   "Instagram @abdirashidabi: 140 followers (checked Nov 12, 2026)",
+   "Instagram @littleherotalesshop: 38 followers (checked Nov 12, 2026)",
+   "Instagram @knowyouknowhq: 5 followers (checked Nov 12, 2026)",
+   "Instagram @stackfolioo (Prompt Daily): 4 followers (checked Nov 12, 2026)",
+   "Instagram @somalienglishacademy: 0 followers (checked Nov 12, 2026)",
+   "Not counted yet (unverified): Baba Rashka YouTube, After Dark Files TikTok"
+  ],
+  "total": 21716
+ },
+ "scaleNote": "Floors are an editorial scale of shipped work, set by Muse. Lit windows = verified activity in the last 7 days. Population and Vault figures are real, counted from the sources listed in the app.",
+ "tagline": "A city that grows with everything we build.",
+ "ticker": [
+  "Nov 12 — Mac cleanup finished: +44.5 GB free, Desktop down to 5 items",
+  "Nov 12 — Word of the Day #2 posted to TikTok, Instagram and Facebook",
+  "Nov 12 — Facts #11 'Top 5 Biggest US States' built and staged",
+  "Nov 12 — MausBot crew (Chief, Builder, Reviewer) moved in",
+  "Nov 12 — Rashkapolis founded"
+ ],
+ "vault": {
+  "checked": "Nov 9, 2026",
+  "goal": 8000,
+  "saved": 2202.4
+ }
+}
+</script>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* =====================================================================
+   1. TRUTH GATE — validate the embedded city data before anything renders
+   ===================================================================== */
+const $ = (s) => document.querySelector(s);
+const BEACONS = { green: '#34d399', amber: '#fbbf24', red: '#f87171' };
+
+function truthGate() {
+  const problems = [];
+  let city = null;
+  try { city = JSON.parse($('#city-data').textContent); }
+  catch (e) { return { city: null, problems: ['City data does not parse: ' + e.message] }; }
+  if (!city || typeof city !== 'object') return { city: null, problems: ['City data is not an object.'] };
+
+  if (!Array.isArray(city.buildings) || !city.buildings.length) problems.push('buildings[] is missing or empty.');
+  const seen = new Set();
+  (city.buildings || []).forEach((b, i) => {
+    const tag = (b && (b.id || b.name)) || ('#' + i);
+    for (const k of ['id', 'name', 'district']) if (typeof b[k] !== 'string' || !b[k]) problems.push(`Building "${tag}" is missing ${k}.`);
+    if (typeof b.floors !== 'number' || !(b.floors > 0)) problems.push(`Building "${tag}" has an invalid floors value.`);
+    if (typeof b.lit !== 'number' || b.lit < 0 || b.lit > 1) problems.push(`Building "${tag}" has lit outside 0..1.`);
+    if (!['green', 'amber', 'red', 'none'].includes(b.beacon)) problems.push(`Building "${tag}" has an unknown beacon "${b.beacon}".`);
+    if (seen.has(b.id)) problems.push(`Duplicate building id "${b.id}".`);
+    seen.add(b.id);
+  });
+
+  const pop = city.population;
+  if (!pop || typeof pop.total !== 'number' || !Array.isArray(pop.sources)) {
+    problems.push('population block is missing total or sources.');
+  } else {
+    // Canonical block: the counted source lines must add up to the stated total.
+    let sum = 0;
+    for (const s of pop.sources) {
+      if (/^not counted/i.test(s)) continue;
+      const m = s.match(/:\s*([\d,]+)\s+(followers|subscribers)/i);
+      if (!m) { problems.push(`Population source has no readable count: "${s}"`); continue; }
+      sum += parseInt(m[1].replace(/,/g, ''), 10);
+    }
+    if (sum !== pop.total) problems.push(`population.total is ${pop.total} but the listed sources add up to ${sum}.`);
+  }
+  const v = city.vault;
+  if (!v || typeof v.saved !== 'number' || typeof v.goal !== 'number' || !(v.goal > 0)) problems.push('vault block is missing saved/goal.');
+  if (!Array.isArray(city.ticker)) problems.push('ticker[] is missing.');
+  if (!Array.isArray(city.futurePlots)) problems.push('futurePlots[] is missing.');
+  return { city, problems };
+}
+
+function showTruthBanner(list) {
+  $('#truth-list').innerHTML = '';
+  list.slice(0, 8).forEach((p) => { const li = document.createElement('li'); li.textContent = p; $('#truth-list').appendChild(li); });
+  $('#truth').classList.add('show');
+}
+
+const gate = truthGate();
+const CITY = gate.city;
+if (gate.problems.length) showTruthBanner(gate.problems);
+window.addEventListener('error', (e) => { if (!$('#truth').classList.contains('show')) showTruthBanner(['The city could not start: ' + (e.message || 'script error')]); });
+
+/* =====================================================================
+   2. HUD — title, chips, ticker, modal (all from CITY)
+   ===================================================================== */
+const fmt = (n) => n.toLocaleString('en-US');
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function fmtDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}, ${m[1]}` : (iso || '');
+}
+let mode = 'hq';
+const gateOK = CITY && !gate.problems.length;
+
+if (CITY) {
+  $('#t-city').textContent = CITY.city || 'RASHKAPOLIS';
+  $('#t-tag').textContent = CITY.tagline || '';
+  $('#c-bld').textContent = Array.isArray(CITY.buildings) ? CITY.buildings.length : '—';
+  $('#c-date').textContent = fmtDate(CITY.asOf);
+  if (gateOK) {
+    $('#c-pop').textContent = fmt(CITY.population.total);
+    $('#m-pop').textContent = fmt(CITY.population.total);
+  }
+  if (CITY.population && Array.isArray(CITY.population.sources)) {
+    for (const s of CITY.population.sources) {
+      const li = document.createElement('li'); li.textContent = s;
+      if (/^not counted/i.test(s)) li.className = 'uncounted';
+      $('#m-sources').appendChild(li);
+    }
+  }
+  $('#m-scale').textContent = CITY.scaleNote || '';
+  if (Array.isArray(CITY.ticker) && CITY.ticker.length) {
+    const track = $('#ticker-track');
+    const run = () => CITY.ticker.forEach((t) => {
+      const s = document.createElement('span'); s.textContent = t; track.appendChild(s);
+      const dot = document.createElement('i'); dot.textContent = '•'; track.appendChild(dot);
+    });
+    run(); run();                                   // two identical runs → seamless -50% loop
+    const chars = CITY.ticker.join('').length;
+    track.style.setProperty('--ticker-dur', Math.max(30, Math.round(chars * 0.16)) + 's');
+  }
+}
+
+const modalWrap = $('#modal-wrap');
+const openModal = () => modalWrap.classList.add('open');
+const closeModal = () => modalWrap.classList.remove('open');
+$('#counts-btn').addEventListener('click', openModal);
+$('#modal .x').addEventListener('click', closeModal);
+modalWrap.addEventListener('click', (e) => { if (e.target === modalWrap) closeModal(); });
+
+/* =====================================================================
+   3. SCENE
+   ===================================================================== */
+if (CITY && Array.isArray(CITY.buildings) && CITY.buildings.length) {
+  try { await document.fonts.load('600 28px "Space Grotesk"'); } catch (e) { /* labels fall back to system font */ }
+  buildCity();
+}
+
+function buildCity() {
+  const FLOOR = 1.6;
+  const isMobile = Math.min(window.innerWidth, window.innerHeight) < 760;
+  const canvas = $('#scene');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = !isMobile;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x2a2150, 95, 330);
+
+  const camera = new THREE.PerspectiveCamera(isMobile ? 58 : 46, window.innerWidth / window.innerHeight, 0.5, 900);
+  camera.position.set(84, 50, 96);
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.target.set(0, 15, 0);
+  controls.enableDamping = true; controls.dampingFactor = 0.06;
+  controls.minDistance = 30; controls.maxDistance = 190;
+  controls.maxPolarAngle = Math.PI / 2 - 0.06;
+  controls.enablePan = false;
+  controls.autoRotate = true; controls.autoRotateSpeed = 0.42;
+  let idleTimer = null;
+  controls.addEventListener('start', () => { controls.autoRotate = false; clearTimeout(idleTimer); $('#hint').classList.add('gone'); });
+  controls.addEventListener('end', () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => { controls.autoRotate = true; }, 6000); });
+
+  /* ---------- helpers ---------- */
+  function rng(seedStr) {
+    let h = 1779033703 ^ seedStr.length;
+    for (let i = 0; i < seedStr.length; i++) { h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+    return () => { h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+  }
+  function canvasTex(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
+
+  const glowTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.25, 'rgba(255,255,255,.55)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64); return canvasTex(c);
+  })();
+  function glow(color, size, opacity = 1) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.scale.setScalar(size); return s;
+  }
+  function label(text, { color = '#f4f1e6', h = 2.1, weight = 600, bg = false, accent = null } = {}) {
+    const c = document.createElement('canvas'); const g = c.getContext('2d'); const px = 44;
+    const font = `${weight} ${px}px "Space Grotesk", "Inter", system-ui, sans-serif`;
+    g.font = font; const padX = 26, w = Math.ceil(g.measureText(text).width) + padX * 2, hh = px + 30;
+    c.width = w; c.height = hh; g.font = font; g.textBaseline = 'middle';
+    if (bg) {
+      g.fillStyle = 'rgba(10,14,34,.62)'; g.beginPath(); g.roundRect(1, 1, w - 2, hh - 2, hh / 2); g.fill();
+      g.strokeStyle = accent || 'rgba(255,255,255,.22)'; g.lineWidth = 2; g.stroke();
+    }
+    g.shadowColor = 'rgba(0,0,0,.85)'; g.shadowBlur = 10; g.fillStyle = color; g.fillText(text, padX, hh / 2 + 2);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(c), transparent: true, depthWrite: false, opacity: .95 }));
+    s.scale.set(h * w / hh, h, 1); s.renderOrder = 5; return s;
+  }
+
+  /* ---------- sky: dusk gradient matched to the concept art ---------- */
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(600, 32, 20),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: { top: { value: new THREE.Color('#0b1026') }, mid: { value: new THREE.Color('#1b2450') }, low: { value: new THREE.Color('#6b2f5c') }, hor: { value: new THREE.Color('#f0763c') }, fogc: { value: new THREE.Color('#2a2150') } },
+      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader: `varying vec3 vP; uniform vec3 top,mid,low,hor,fogc;
+        float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+        void main(){
+          float h = clamp(vP.y,0.0,1.0);
+          vec3 c = mix(mid, top, smoothstep(0.18,0.75,h));
+          c = mix(low, c, smoothstep(0.02,0.30,h));
+          float west = pow(max(dot(normalize(vP.xz+1e-5), normalize(vec2(-0.85,-0.5))),0.0),2.2);
+          c = mix(c, hor, (1.0-smoothstep(0.0,0.2,h)) * (0.12+0.78*west));
+          c = mix(fogc, c, smoothstep(0.0,0.07,h));
+          vec2 g = floor(vP.xz/ max(vP.y,0.05) * 60.0);
+          float s = step(0.9975, hash(g)) * smoothstep(0.25,0.6,h);
+          c += vec3(s)*0.8;
+          if (vP.y < 0.0) c = fogc;
+          gl_FragColor = vec4(c,1.0);
+        }`
+    })
+  );
+  scene.add(sky);
+
+  /* ---------- lights ---------- */
+  scene.add(new THREE.AmbientLight(0x3a4478, 0.9));
+  scene.add(new THREE.HemisphereLight(0x5466b8, 0x1a1430, 0.9));
+  const moon = new THREE.DirectionalLight(0xa9bcff, 1.25);
+  moon.position.set(60, 90, 40);
+  if (renderer.shadowMap.enabled) {
+    moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048);
+    const sc = moon.shadow.camera; sc.left = -75; sc.right = 75; sc.top = 75; sc.bottom = -75; sc.near = 10; sc.far = 260;
+    moon.shadow.bias = -0.0006; moon.shadow.radius = 4;
+  }
+  scene.add(moon);
+  const dusk = new THREE.DirectionalLight(0xff9a5c, 0.9); dusk.position.set(-90, 16, -55); scene.add(dusk);
+  const plazaLight = new THREE.PointLight(0xffc977, 260, 60, 2); plazaLight.position.set(0, 9, 0); scene.add(plazaLight);
+
+  /* ---------- ground, roads, sidewalks, plaza ---------- */
+  const ROADS = [-42, -20, 20, 42], ROAD_W = 4.4, EXT = 64;
+  const M = {
+    ground: new THREE.MeshStandardMaterial({ color: 0x11162e, roughness: .95 }),
+    road: new THREE.MeshStandardMaterial({ color: 0x0a0e22, roughness: .7, metalness: .15 }),
+    walk: new THREE.MeshStandardMaterial({ color: 0x2a2f52, roughness: .9 }),
+    plaza: new THREE.MeshStandardMaterial({ color: 0x3a3550, roughness: .85 }),
+    stone: new THREE.MeshStandardMaterial({ color: 0xcdbb97, roughness: .8 }),
+    gold: new THREE.MeshStandardMaterial({ color: 0xE9B44C, emissive: 0xE9B44C, emissiveIntensity: .55, roughness: .4, metalness: .6 }),
+    teal: new THREE.MeshStandardMaterial({ color: 0x2dd4bf, emissive: 0x2dd4bf, emissiveIntensity: .7, roughness: .4 }),
+    dark: new THREE.MeshStandardMaterial({ color: 0x0f1430, roughness: .6, metalness: .3 }),
+    water: new THREE.MeshStandardMaterial({ color: 0x0c3a55, emissive: 0x0b4a5c, emissiveIntensity: .55, roughness: .08, metalness: .9 }),
+    leaf: new THREE.MeshStandardMaterial({ color: 0x1f6b4a, emissive: 0x0f3a26, emissiveIntensity: .5, roughness: .9 }),
+    trunk: new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 }),
+    lane: new THREE.MeshBasicMaterial({ color: 0xE9B44C, transparent: true, opacity: .38 }),
+    lamp: new THREE.MeshBasicMaterial({ color: 0xffd38a })
+  };
+  const flat = (geo, mat, y, receive = true) => { const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.position.y = y; m.receiveShadow = receive; scene.add(m); return m; };
+  flat(new THREE.CircleGeometry(560, 64), M.ground, 0);
+
+  // Block slabs (sidewalk-height islands between the roads)
+  const edges = [-EXT, ...ROADS, EXT];
+  const blocks = [];
+  for (let i = 0; i < edges.length - 1; i++) for (let j = 0; j < edges.length - 1; j++) {
+    const x0 = edges[i] + (i ? ROAD_W / 2 : 0), x1 = edges[i + 1] - (i < edges.length - 2 ? ROAD_W / 2 : 0);
+    const z0 = edges[j] + (j ? ROAD_W / 2 : 0), z1 = edges[j + 1] - (j < edges.length - 2 ? ROAD_W / 2 : 0);
+    blocks.push({ x0, x1, z0, z1 });
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, .22, z1 - z0), M.walk);
+    slab.position.set((x0 + x1) / 2, .11, (z0 + z1) / 2); slab.receiveShadow = true; scene.add(slab);
+  }
+  // Roads sit on the ground between slabs: add the road surface + glowing centre line
+  for (const r of ROADS) {
+    const a = flat(new THREE.PlaneGeometry(ROAD_W, EXT * 2), M.road, .02); a.position.x = r;
+    const b = flat(new THREE.PlaneGeometry(EXT * 2, ROAD_W), M.road, .021); b.position.z = r;
+    const la = flat(new THREE.PlaneGeometry(.12, EXT * 2), M.lane, .04, false); la.position.x = r;
+    const lb = flat(new THREE.PlaneGeometry(EXT * 2, .12), M.lane, .041, false); lb.position.z = r;
+  }
+  // Central plaza: stone disc, gold inlay rings, a canal ring (concept art's water), teal inner ring
+  flat(new THREE.CircleGeometry(13.4, 72), M.plaza, .25);
+  flat(new THREE.RingGeometry(13.4, 15.9, 72), M.water, .245);
+  flat(new THREE.RingGeometry(15.9, 16.4, 72), M.stone, .26);
+  flat(new THREE.RingGeometry(12.9, 13.4, 72), M.stone, .27);
+  flat(new THREE.RingGeometry(9.2, 9.45, 72), M.gold, .27, false);
+  flat(new THREE.RingGeometry(5.3, 5.5, 72), M.teal, .27, false);
+  // four little bridges over the canal
+  for (let k = 0; k < 4; k++) {
+    const a = k * Math.PI / 2 + Math.PI / 4;
+    const br = new THREE.Mesh(new THREE.BoxGeometry(2.2, .24, 3.6), M.stone);
+    br.position.set(Math.cos(a) * 14.7, .34, Math.sin(a) * 14.7); br.rotation.y = -a + Math.PI / 2; br.receiveShadow = true; scene.add(br);
+  }
+  // Street lamps: instanced posts + additive glows (cheap warmth along the avenues)
+  {
+    const pts = [];
+    for (const r of [-20, 20]) for (let t = -54; t <= 54; t += 12) { pts.push([r - 2.9, t], [r + 2.9, t + 6], [t, r - 2.9], [t + 6, r + 2.9]); }
+    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; pts.push([Math.cos(a) * 12.2, Math.sin(a) * 12.2]); }
+    const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(.05, .07, 2.4, 5), M.dark, pts.length);
+    const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(.17, 8, 6), M.lamp, pts.length);
+    const d = new THREE.Object3D();
+    pts.forEach(([x, z], i) => {
+      d.position.set(x, 1.4, z); d.updateMatrix(); posts.setMatrixAt(i, d.matrix);
+      d.position.set(x, 2.65, z); d.updateMatrix(); heads.setMatrixAt(i, d.matrix);
+      if (i % (isMobile ? 3 : 1) === 0) { const g = glow(0xffc46b, 2.6, .5); g.position.set(x, 2.65, z); scene.add(g); }
+    });
+    scene.add(posts, heads);
+  }
+  // Trees: palms round the plaza and a pocket park in the south-east block
+  {
+    const spots = [];
+    for (let k = 0; k < 16; k++) { const a = (k + .5) / 16 * Math.PI * 2; spots.push([Math.cos(a) * 11, Math.sin(a) * 11, 1]); }
+    const pr = rng('park');
+    for (let k = 0; k < 22; k++) spots.push([24.5 + pr() * 15, 24.5 + pr() * 15, .8 + pr() * .7]);
+    for (const c of [[-17, -17], [17, -17], [-17, 17], [17, 17]]) spots.push([c[0], c[1], 1.2]);
+    const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(.09, .14, 2.2, 5), M.trunk, spots.length);
+    const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.95, 0), M.leaf, spots.length);
+    const d = new THREE.Object3D();
+    spots.forEach(([x, z, s], i) => {
+      d.position.set(x, .22 + 1.1 * s, z); d.scale.set(s, s, s); d.rotation.set(0, 0, 0); d.updateMatrix(); trunks.setMatrixAt(i, d.matrix);
+      d.position.set(x, .22 + 2.5 * s, z); d.scale.set(s, s * .8, s); d.rotation.set(0, i, 0); d.updateMatrix(); crowns.setMatrixAt(i, d.matrix);
+    });
+    crowns.castShadow = true; scene.add(trunks, crowns);
+    const pond = flat(new THREE.CircleGeometry(3.2, 32), M.water, .235); pond.position.set(32, .235, 32);
+  }
+
+  /* ---------- district styles ---------- */
+  const STYLE = {
+    team:     { label: 'Team district',     dot: '#2dd4bf', facade: '#12333d', off: '#0e2530', mull: '#3fb8ad', metal: .7,  rough: .22, cols: 7, trim: 0x2dd4bf },
+    channels: { label: 'Channels district', dot: '#f472b6', facade: '#17122e', off: '#221c44', mull: '#2a2350', metal: .35, rough: .45, cols: 6, trim: 0xf472b6 },
+    business: { label: 'Business district', dot: '#E9B44C', facade: '#8d7a5c', off: '#262a3c', mull: '#a8946e', metal: .05, rough: .88, cols: 5, trim: 0xE9B44C },
+    center:   { label: 'City centre',       dot: '#ffd38a' }
+  };
+  const NEON = [0xff4fd8, 0x38bdf8, 0xa78bfa, 0x34d399, 0xfb7185, 0x22d3ee];
+
+  function facadeTextures(b, st, warm = '#ffd38a', width = 0) {
+    const r = rng(b.id + ':win'), cols = width ? Math.max(4, Math.round(width * 1.75)) : st.cols, rows = Math.max(1, Math.round(b.floors));
+    const cw = 18, ch = 26, W = cols * cw, H = rows * ch;
+    const cm = document.createElement('canvas'), ce = document.createElement('canvas');
+    cm.width = ce.width = W; cm.height = ce.height = H;
+    const gm = cm.getContext('2d'), ge = ce.getContext('2d');
+    gm.fillStyle = st.facade; gm.fillRect(0, 0, W, H); ge.fillStyle = '#000'; ge.fillRect(0, 0, W, H);
+    // exact share of lit windows = b.lit (shuffled so the pattern is organic, the ratio is exact)
+    const n = cols * rows, cells = Array.from({ length: n }, (_, i) => i < Math.round(n * b.lit));
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
+    const ix = st === STYLE.business ? 5 : 3, iy = st === STYLE.business ? 5 : 4;
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const X = x * cw + ix, Y = y * ch + iy, w = cw - ix * 2, h = ch - iy * 2;
+      if (cells[y * cols + x]) {
+        const k = .72 + r() * .28;
+        gm.globalAlpha = 1; gm.fillStyle = warm; gm.fillRect(X, Y, w, h);
+        ge.globalAlpha = k; ge.fillStyle = warm; ge.fillRect(X, Y, w, h);
+        ge.globalAlpha = k * .25; ge.fillRect(X - 2, Y - 2, w + 4, h + 4);
+      } else { gm.globalAlpha = 1; gm.fillStyle = st.off; gm.fillRect(X, Y, w, h); }
+    }
+    gm.globalAlpha = .38; gm.fillStyle = st.mull;
+    for (let y = 0; y <= rows; y++) gm.fillRect(0, y * ch - 1, W, 2);
+    return { map: canvasTex(cm), emissive: canvasTex(ce) };
+  }
+
+  /* ---------- layout: every id gets a lot; unknown ids fall into overflow lots ---------- */
+  const LOT = {
+    lighthouse: [0, 0],
+    'muse-hq': [0, -31, 8.2], 'claude-fable': [-12, -30, 5.6], chatgpt: [12, -30, 5.4],
+    gemini: [-36, -27, 5], codex: [-27.5, -27.5, 4.8], canva: [-31, -36, 4.6],
+    elevenlabs: [-35.5, -13, 4.8], notebooklm: [-27.5, -13, 4.8], perplexity: [-35.5, -3.5, 4.6], deepseek: [-27.5, -3.5, 4.6],
+    grok: [-35.5, 5.5, 4.6], kimi: [-27.5, 5.5, 4.4], mausbot: [-31, 14],
+    academy: [31, -9, 7.4], 'prompt-daily': [27, 3, 4.8], 'know-you-know': [35.5, 5, 4.8], 'little-hero-ig': [29, 13, 4.8],
+    'baba-rashka': [27.5, -28, 4.8], 'after-dark': [35.5, -34, 4.6],
+    vault: [0, 31, 6.4], etsy: [-11.5, 30, 5.6], kdp: [11.5, 30, 5.6]
+  };
+  const overflow = []; for (let x = -54; x <= 54; x += 9) overflow.push([x, -53], [x, 53]);
+
+  const pickables = [], beacons = [], flickers = [], byId = new Map();
+  let skylineTop = 0, spireTop = 0;
+
+  function addPick(mesh, rec) { mesh.userData.rec = rec; pickables.push(mesh); }
+  function shadow(m) { m.castShadow = true; m.receiveShadow = true; return m; }
+
+  function addBeacon(b, x, y, z) {
+    if (!BEACONS[b.beacon]) return;
+    const col = new THREE.Color(BEACONS[b.beacon]);
+    const g = new THREE.Group(); g.position.set(x, y, z);
+    const s = new THREE.Mesh(new THREE.SphereGeometry(.34, 14, 10), new THREE.MeshBasicMaterial({ color: col }));
+    const halo = glow(col, 3.4, .85);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, .9, 5), M.dark); mast.position.y = -.6;
+    g.add(s, halo, mast); scene.add(g);
+    beacons.push({ g, s, halo, pulse: b.beacon !== 'green', phase: Math.random() * 6 });
+  }
+
+  function tower(b, x, z, w, d, opts = {}) {
+    const st = STYLE[b.district] || STYLE.team;
+    const H = b.floors * FLOOR, grp = new THREE.Group(); grp.position.set(x, .22, z);
+    const tex = facadeTextures(b, st, opts.warm, Math.max(w, d));
+    const side = new THREE.MeshStandardMaterial({ map: tex.map, emissive: 0xffffff, emissiveMap: tex.emissive, emissiveIntensity: opts.glow || 1.15, metalness: st.metal, roughness: st.rough });
+    const roof = new THREE.MeshStandardMaterial({ color: st === STYLE.business ? 0x6f6048 : 0x121a36, roughness: .8 });
+    const body = shadow(new THREE.Mesh(new THREE.BoxGeometry(w, H, d), [side, side, roof, roof, side, side]));
+    body.position.y = H / 2; grp.add(body);
+    flickers.push({ mat: side, base: side.emissiveIntensity, f: .4 + Math.random() * .7, p: Math.random() * 6 });
+    // finished roof: parapet frame + roof-top plant
+    const trimMat = st === STYLE.business ? M.stone : M.dark;
+    const par = new THREE.Mesh(new THREE.BoxGeometry(w + .36, .5, d + .36), trimMat); par.position.y = H + .05; grp.add(par);
+    const inset = new THREE.Mesh(new THREE.BoxGeometry(w - .5, .12, d - .5), roof); inset.position.y = H + .32; grp.add(inset);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(w + .7, .7, d + .7), trimMat); base.position.y = .35; base.receiveShadow = true; grp.add(base);
+    const r = rng(b.id + ':roof');
+    if (!opts.cleanRoof) {
+      const hv = new THREE.Mesh(new THREE.BoxGeometry(w * .28, .7, d * .24), M.dark); hv.position.set((r() - .5) * w * .4, H + .7, (r() - .5) * d * .4); grp.add(hv);
+    }
+    // district character
+    if (b.district === 'team') {              // glassy futuristic: luminous teal fins + crown line
+      const fin = new THREE.MeshBasicMaterial({ color: 0x2dd4bf, transparent: true, opacity: .75 });
+      for (const sx of [-1, 1]) { const f = new THREE.Mesh(new THREE.BoxGeometry(.1, H * .96, .1), fin); f.position.set(sx * (w / 2 + .06), H / 2, d / 2 + .06); grp.add(f); }
+      const crown = new THREE.Mesh(new THREE.BoxGeometry(w + .5, .1, d + .5), fin); crown.position.y = H + .34; grp.add(crown);
+    } else if (b.district === 'channels') {   // neon / media: vertical neon blade, roof frame, lit billboard band
+      const c = NEON[Math.floor(r() * NEON.length)], c2 = NEON[Math.floor(r() * NEON.length)];
+      const nm = new THREE.MeshBasicMaterial({ color: c }), nm2 = new THREE.MeshBasicMaterial({ color: c2 });
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(.22, H * .8, .22), nm); blade.position.set(w / 2 + .12, H * .52, d / 2 + .12); grp.add(blade);
+      const blade2 = new THREE.Mesh(new THREE.BoxGeometry(.16, H * .55, .16), nm2); blade2.position.set(-w / 2 - .1, H * .6, -d / 2 - .1); grp.add(blade2);
+      const band = new THREE.Mesh(new THREE.BoxGeometry(w + .46, .2, d + .46), nm); band.position.y = H + .36; grp.add(band);
+      const band2 = new THREE.Mesh(new THREE.BoxGeometry(w + .3, .14, d + .3), nm2); band2.position.y = Math.max(1.4, H * .2); grp.add(band2);
+      const g1 = glow(c, Math.min(9, 3 + H * .12), .5); g1.position.set(w / 2 + .3, H * .6, d / 2 + .3); grp.add(g1);
+    } else if (b.district === 'business') {   // stone and glass: gold cornices, pilasters
+      const cor = new THREE.Mesh(new THREE.BoxGeometry(w + .5, .16, d + .5), M.gold); cor.position.y = H + .34; grp.add(cor);
+      const cor2 = new THREE.Mesh(new THREE.BoxGeometry(w + .3, .12, d + .3), M.gold); cor2.position.y = 1.5; grp.add(cor2);
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(.5, H, .5), M.stone); p.position.set(sx * w / 2, H / 2, sz * d / 2); p.castShadow = true; grp.add(p); }
+    }
+    scene.add(grp);
+    return { grp, body, H, w, d };
+  }
+
+  let labelN = 0;
+  function registerLabel(b, x, top, z, opts = {}) {
+    if (!opts.h) opts.h = b.floors >= 14 ? 2.1 : 1.55;
+    const l = label(b.name, opts); l.position.set(x, top + 1.9 + (labelN++ % 3) * 1.5, z); scene.add(l); return l;
+  }
+
+  /* ---------- build every building from CITY ---------- */
+  for (const b of CITY.buildings) {
+    const lot = LOT[b.id] || overflow.shift() || [0, 58];
+    const [x, z] = lot, r = rng(b.id + ':fp');
+    const rec = { b, x, z, ring: 4, kind: 'building' };
+    byId.set(b.id, rec);
+
+    if (b.id === 'lighthouse') {
+      /* The Owner's Lighthouse — the visual heart */
+      const H = b.floors * FLOOR, g = new THREE.Group(); g.position.set(x, .25, z);
+      const steps = [[5.2, .5], [4.3, .5], [3.5, .6]]; let y = 0;
+      for (const [rad, hh] of steps) { const s = shadow(new THREE.Mesh(new THREE.CylinderGeometry(rad, rad + .15, hh, 40), M.stone)); s.position.y = y + hh / 2; g.add(s); y += hh; }
+      const st = { cols: 10, facade: '#efe6d2', off: '#b9ad94', mull: '#d9ccb0' };
+      const tex = facadeTextures(b, st, '#ffd38a'); tex.map.wrapS = tex.emissive.wrapS = THREE.RepeatWrapping;
+      const shaftMat = new THREE.MeshStandardMaterial({ map: tex.map, emissive: 0xffffff, emissiveMap: tex.emissive, emissiveIntensity: 1.2, roughness: .7 });
+      const shaft = shadow(new THREE.Mesh(new THREE.CylinderGeometry(1.35, 2.5, H, 36, 1), shaftMat)); shaft.position.y = y + H / 2; g.add(shaft);
+      flickers.push({ mat: shaftMat, base: 1.2, f: .5, p: 0 });
+      for (const k of [.33, .66]) { const band = new THREE.Mesh(new THREE.TorusGeometry(2.5 - 1.15 * k + .06, .09, 8, 40), M.teal); band.rotation.x = Math.PI / 2; band.position.y = y + H * k; g.add(band); }
+      const top = y + H;
+      const gallery = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 1.7, .4, 36), M.stone); gallery.position.y = top + .2; g.add(gallery);
+      const rail = new THREE.Mesh(new THREE.TorusGeometry(2.05, .05, 6, 40), M.gold); rail.rotation.x = Math.PI / 2; rail.position.y = top + .95; g.add(rail);
+      const lantern = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 2.1, 24), new THREE.MeshBasicMaterial({ color: 0xffe2a6, transparent: true, opacity: .92 })); lantern.position.y = top + 1.45; g.add(lantern);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(1.55, 1.5, 24), new THREE.MeshStandardMaterial({ color: 0x1fa596, emissive: 0x0d6b60, emissiveIntensity: .6, roughness: .4, metalness: .5 })); cap.position.y = top + 3.25; g.add(cap);
+      const fin = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 1.3, 5), M.gold); fin.position.y = top + 4.6; g.add(fin);
+      const lg = glow(0xffd38a, 11, .9); lg.position.y = top + 1.5; g.add(lg);
+      // rotating soft beams (additive cones, apex at the lantern)
+      const beamGeo = new THREE.ConeGeometry(5.5, 62, 28, 1, true); beamGeo.translate(0, -31, 0); beamGeo.rotateZ(Math.PI / 2);
+      const beamMat = new THREE.MeshBasicMaterial({ color: 0xffe2a6, transparent: true, opacity: .085, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+      const beams = new THREE.Group(); beams.position.y = top + 1.5;
+      const b1 = new THREE.Mesh(beamGeo, beamMat); b1.rotation.z = -.05;
+      const b2 = new THREE.Mesh(beamGeo, beamMat); b2.rotation.y = Math.PI; b2.rotation.z = -.05;
+      const core = new THREE.ConeGeometry(1.6, 62, 16, 1, true); core.translate(0, -31, 0); core.rotateZ(Math.PI / 2);
+      const c1 = new THREE.Mesh(core, beamMat); const c2 = new THREE.Mesh(core, beamMat); c2.rotation.y = Math.PI;
+      beams.add(b1, b2, c1, c2); g.add(beams); rec.beams = beams;
+      scene.add(g);
+      addPick(shaft, rec); rec.ring = 6.2; rec.top = top + 5.2 + .25;
+      addBeacon(b, x + 2.6, top + 1.4, z);
+      rec.label = registerLabel(b, x, rec.top - .6, z, { color: '#ffe7b8', h: 2.2 });
+      skylineTop = Math.max(skylineTop, rec.top);
+
+    } else if (b.id === 'vault') {
+      /* The Vault — glass tower, inner gold column = saved / goal */
+      const H = b.floors * FLOOR, w = lot[2] || 6, g = new THREE.Group(); g.position.set(x, .22, z);
+      const plinth = shadow(new THREE.Mesh(new THREE.BoxGeometry(w + 1.6, .8, w + 1.6), M.stone)); plinth.position.y = .4; g.add(plinth);
+      const ratio = Math.max(0, Math.min(1, CITY.vault.saved / CITY.vault.goal));
+      const colH = Math.max(.05, H * ratio);
+      const col = new THREE.Mesh(new THREE.BoxGeometry(w * .56, colH, w * .56), new THREE.MeshStandardMaterial({ color: 0xE9B44C, emissive: 0xffb93a, emissiveIntensity: 1.5, roughness: .3, metalness: .7 }));
+      col.position.y = .8 + colH / 2; g.add(col);
+      const cg = glow(0xffc24d, 9, .55); cg.position.y = .8 + colH * .6; g.add(cg);
+      // goal marks every quarter, etched inside the glass
+      for (const q of [.25, .5, .75, 1]) { const mk = new THREE.Mesh(new THREE.BoxGeometry(w * .7, .05, w * .7), new THREE.MeshBasicMaterial({ color: 0xE9B44C, transparent: true, opacity: .22 })); mk.position.y = .8 + H * q; g.add(mk); }
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(w, H, w), new THREE.MeshPhysicalMaterial({ color: 0xbfe9ff, transparent: true, opacity: .16, roughness: .05, metalness: .1, clearcoat: 1, depthWrite: false, side: THREE.DoubleSide }));
+      glass.position.y = .8 + H / 2; g.add(glass);
+      const edgeMat = new THREE.LineBasicMaterial({ color: 0xcfeeff, transparent: true, opacity: .55 });
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, H, w)), edgeMat); edge.position.copy(glass.position); g.add(edge);
+      const capV = shadow(new THREE.Mesh(new THREE.BoxGeometry(w + .4, .45, w + .4), M.stone)); capV.position.y = .8 + H + .22; g.add(capV);
+      const capG = new THREE.Mesh(new THREE.BoxGeometry(w + .55, .12, w + .55), M.gold); capG.position.y = .8 + H + .5; g.add(capG);
+      scene.add(g);
+      const hit = new THREE.Mesh(new THREE.BoxGeometry(w, H, w), new THREE.MeshBasicMaterial({ visible: false })); hit.position.set(x, 1.02 + H / 2, z); scene.add(hit);
+      addPick(hit, rec); rec.ring = w * .95; rec.top = 1.02 + H + .6;
+      addBeacon(b, x, rec.top + .6, z);
+      rec.label = registerLabel(b, x, rec.top, z, { color: '#ffe7b8' });
+      skylineTop = Math.max(skylineTop, rec.top);
+
+    } else if (b.id === 'mausbot') {
+      /* MausBot Complex — three slim towers, one podium, one label */
+      const H = b.floors * FLOOR, g = new THREE.Group(); g.position.set(x, .22, z);
+      const pod = shadow(new THREE.Mesh(new THREE.BoxGeometry(11.5, 1.4, 5.6), M.dark)); pod.position.y = .7; g.add(pod);
+      const podLine = new THREE.Mesh(new THREE.BoxGeometry(11.7, .1, 5.8), new THREE.MeshBasicMaterial({ color: 0x2dd4bf })); podLine.position.y = 1.42; g.add(podLine);
+      scene.add(g);
+      const hs = [H, H * 1.18, H * .88];
+      [-3.7, 0, 3.7].forEach((ox, i) => {
+        const t = tower({ ...b, id: b.id + i, floors: hs[i] / FLOOR }, x + ox, z, 2.5, 2.9, {});
+        t.grp.position.y = 1.62; addPick(t.body, rec);
+      });
+      rec.ring = 7.2; rec.top = 1.62 + hs[1] + .6;
+      addBeacon(b, x, rec.top + .9, z);
+      rec.label = registerLabel(b, x, rec.top + .3, z, {});
+      skylineTop = Math.max(skylineTop, rec.top);
+
+    } else if (b.id === 'muse-hq') {
+      /* Nuur Tower — the finest tower: setbacks, rooftop garden ring, observatory band, spire crown */
+      const w = lot[2] || 8.2, H = b.floors * FLOOR;
+      const t = tower(b, x, z, w, w, { warm: '#ffc566', glow: 1.75, cleanRoof: true });
+      const g = t.grp; addPick(t.body, rec);
+      const goldEdge = new THREE.MeshStandardMaterial({ color: 0xE9B44C, emissive: 0xE9B44C, emissiveIntensity: .9, roughness: .35, metalness: .7 });
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(.34, H + .4, .34), goldEdge); e.position.set(sx * w / 2, H / 2, sz * w / 2); g.add(e); }
+      for (const sx of [-1, 1]) for (const ax of [0, 1]) {   // slender buttress fins that taper the silhouette
+        const f = shadow(new THREE.Mesh(new THREE.BoxGeometry(ax ? 1.5 : .5, H * .62, ax ? .5 : 1.5), M.dark));
+        f.position.set(ax ? 0 : sx * (w / 2 + .5), H * .31, ax ? sx * (w / 2 + .5) : 0); g.add(f);
+        const fl = new THREE.Mesh(new THREE.BoxGeometry(ax ? 1.5 : .12, .12, ax ? .12 : 1.5), goldEdge);
+        fl.position.set(ax ? 0 : sx * (w / 2 + .78), H * .62, ax ? sx * (w / 2 + .78) : 0); g.add(fl);
+      }
+      let y = H + .3;
+      // rooftop garden ring
+      const deck = shadow(new THREE.Mesh(new THREE.CylinderGeometry(w * .62, w * .62, .4, 40), M.stone)); deck.position.y = y + .2; g.add(deck);
+      const garden = new THREE.Mesh(new THREE.TorusGeometry(w * .5, .46, 10, 44), new THREE.MeshStandardMaterial({ color: 0x2f9e5f, emissive: 0x1c7a45, emissiveIntensity: .8, roughness: .95 }));
+      garden.rotation.x = Math.PI / 2; garden.position.y = y + .62; g.add(garden);
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; const tr = new THREE.Mesh(new THREE.IcosahedronGeometry(.5, 0), M.leaf); tr.position.set(Math.cos(a) * w * .5, y + 1.25, Math.sin(a) * w * .5); g.add(tr); }
+      y += .4;
+      // upper drum + glowing observatory band (glass ring) just under the crown
+      const drum = shadow(new THREE.Mesh(new THREE.CylinderGeometry(w * .3, w * .34, 3.2, 32), new THREE.MeshStandardMaterial({ color: 0x15343c, roughness: .25, metalness: .7 }))); drum.position.y = y + 1.6; g.add(drum);
+      y += 3.2;
+      const obs = new THREE.Mesh(new THREE.CylinderGeometry(w * .43, w * .4, 1.7, 44, 1, true), new THREE.MeshBasicMaterial({ color: 0x8ff5e6, transparent: true, opacity: .82, side: THREE.DoubleSide }));
+      obs.position.y = y + .85; g.add(obs);
+      const obsCore = new THREE.Mesh(new THREE.CylinderGeometry(w * .3, w * .3, 1.7, 24), new THREE.MeshBasicMaterial({ color: 0xffe2a6 })); obsCore.position.y = y + .85; g.add(obsCore);
+      for (const dy of [0, 1.7]) { const rim = new THREE.Mesh(new THREE.TorusGeometry(w * .43, .12, 8, 44), goldEdge); rim.rotation.x = Math.PI / 2; rim.position.y = y + dy; g.add(rim); }
+      const og = glow(0x5ff0dc, 13, .7); og.position.y = y + .85; g.add(og);
+      y += 1.7;
+      // spire crown: gold-ribbed cone, needle, tip light
+      const crown = shadow(new THREE.Mesh(new THREE.ConeGeometry(w * .4, 6.5, 8), new THREE.MeshStandardMaterial({ color: 0x1b4a52, emissive: 0x0e5d58, emissiveIntensity: .45, roughness: .3, metalness: .75, flatShading: true }))); crown.position.y = y + 3.25; g.add(crown);
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8; const rib = new THREE.Mesh(new THREE.CylinderGeometry(.03, .1, 6.6, 4), goldEdge); rib.position.set(Math.cos(a) * w * .2, y + 3.25, Math.sin(a) * w * .2); rib.rotation.z = Math.cos(a) * .47; rib.rotation.x = -Math.sin(a) * .47; g.add(rib); }
+      y += 6.5;
+      const needle = new THREE.Mesh(new THREE.CylinderGeometry(.03, .16, 9, 6), goldEdge); needle.position.y = y + 4.2; g.add(needle);
+      y += 8.7;
+      const tip = glow(0xfff0c2, 4.2, 1); tip.position.y = y; g.add(tip);
+      const tipCore = new THREE.Mesh(new THREE.SphereGeometry(.16, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff4d6 })); tipCore.position.y = y; g.add(tipCore);
+      const warmth = glow(0xffb650, 30, .22); warmth.position.y = H * .5; g.add(warmth);
+      rec.ring = w * .95; rec.top = .22 + y; spireTop = rec.top; rec.pulse = tip;
+      addBeacon(b, x + w * .5, .22 + H + 1.9, z + w * .5);
+      rec.label = label(b.name, { color: '#ffe7b8', h: 2.5, bg: true, accent: 'rgba(233,180,76,.7)' }); rec.label.position.set(x, rec.top + 2.4, z); scene.add(rec.label);
+
+      // Tour pod — parked at Nuur Tower (teal and gold), not driven in v1
+      const tp = makePod(0x1fb5a3, 0xE9B44C, 'TOUR POD', true);
+      tp.position.set(x + w / 2 + 2.6, .62, z + w / 2 + 1.2); tp.rotation.y = Math.PI / 2; scene.add(tp);
+      const pad = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.72, 32), new THREE.MeshBasicMaterial({ color: 0x2dd4bf, transparent: true, opacity: .8 })); pad.rotation.x = -Math.PI / 2; pad.position.set(tp.position.x, .245, tp.position.z); scene.add(pad);
+
+    } else {
+      const base = lot[2] || 4.8;
+      const w = base * (.92 + r() * .16), d = base * (.86 + r() * .26);
+      const t = tower(b, x, z, w, d, {});
+      addPick(t.body, rec);
+      rec.ring = Math.max(w, d) * .95; rec.top = .22 + t.H + .6;
+      // tall towers get a slimmer upper stage so the skyline steps like the concept art
+      if (b.floors >= 14) {
+        const cap = shadow(new THREE.Mesh(new THREE.BoxGeometry(w * .55, 2.4, d * .55), M.dark)); cap.position.set(x, .22 + t.H + 1.5, z); scene.add(cap);
+        const mastH = b.floors >= 24 ? 5 : 3;
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(.04, .1, mastH, 5), b.district === 'channels' ? new THREE.MeshBasicMaterial({ color: 0x38bdf8 }) : M.teal); mast.position.set(x, .22 + t.H + 2.7 + mastH / 2, z); scene.add(mast);
+        rec.top = .22 + t.H + 2.7 + mastH;
+        addBeacon(b, x + w * .3, .22 + t.H + 1.5, z + d * .3);
+      } else addBeacon(b, x, rec.top + .7, z);
+      rec.label = registerLabel(b, x, rec.top, z, {});
+      skylineTop = Math.max(skylineTop, rec.top);
+    }
+  }
+
+  /* ---------- Future Apps block: holographic fencing, three plots, one crane ---------- */
+  const holo = new THREE.MeshBasicMaterial({ color: 0x5ee7ff, transparent: true, opacity: .2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const holoSolid = new THREE.MeshBasicMaterial({ color: 0x7defff, transparent: true, opacity: .85 });
+  const holoLine = new THREE.LineBasicMaterial({ color: 0x7defff, transparent: true, opacity: .55 });
+  const plotLots = [[-36, 27], [-26.5, 27], [-31, 36.5]], plotRecs = [];
+  const gridTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = '#0c1430'; g.fillRect(0, 0, 128, 128); g.strokeStyle = 'rgba(94,231,255,.5)'; g.lineWidth = 1.5;
+    for (let i = 0; i <= 128; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.moveTo(0, i); g.lineTo(128, i); g.stroke(); }
+    return canvasTex(c);
+  })();
+  CITY.futurePlots.forEach((p, i) => {
+    const lot = plotLots[i] || [-31 + (i - 3) * 9, 54]; const [x, z] = lot, S = 7;
+    const g = new THREE.Group(); g.position.set(x, .23, z);
+    const pad = new THREE.Mesh(new THREE.PlaneGeometry(S, S), new THREE.MeshBasicMaterial({ map: gridTex })); pad.rotation.x = -Math.PI / 2; pad.position.y = .01; g.add(pad);
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2;
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(S, 1.5), holo); pane.position.set(Math.sin(a) * S / 2, .75, Math.cos(a) * S / 2); pane.rotation.y = a; g.add(pane);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(S, .05, .05), holoSolid); rail.position.set(Math.sin(a) * S / 2, 1.5, Math.cos(a) * S / 2); rail.rotation.y = a; g.add(rail);
+      const post = new THREE.Mesh(new THREE.BoxGeometry(.1, 1.7, .1), holoSolid); post.position.set((k < 2 ? 1 : -1) * S / 2, .85, (k % 2 ? 1 : -1) * S / 2); g.add(post);
+    }
+    // a wireframe ghost of the tower to come
+    const gh = 5 + i * 2.2;
+    const ghost = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(3.4, gh, 3.4, 1, 1, 1)), holoLine); ghost.position.y = gh / 2; g.add(ghost);
+    for (let yy = 1.6; yy < gh; yy += 1.6) { const fl = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(3.4, 3.4)), holoLine); fl.rotation.x = Math.PI / 2; fl.position.y = yy; g.add(fl); }
+    scene.add(g);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(S, gh, S), new THREE.MeshBasicMaterial({ visible: false })); hit.position.set(x, gh / 2, z); scene.add(hit);
+    const rec = { plot: p, x, z, ring: S * .78, kind: 'plot' }; addPick(hit, rec); plotRecs.push(rec);
+    const l = label(p.name, { color: '#bdf6ff', h: 1.5 }); l.position.set(x, gh + 1.6, z); scene.add(l);
+  });
+  { // one crane, holographic-toned
+    const g = new THREE.Group(); g.position.set(-37.5, .23, 36.5);
+    const add = (geo, x, y, z) => { const m = new THREE.Mesh(geo, holoSolid); m.position.set(x, y, z); g.add(m); return m; };
+    const mast = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(.8, 17, .8, 1, 10, 1)), holoLine); mast.position.y = 8.5; g.add(mast);
+    add(new THREE.BoxGeometry(.25, 17, .25), 0, 8.5, 0);
+    const jib = new THREE.Group(); jib.position.y = 17;
+    const j1 = new THREE.Mesh(new THREE.BoxGeometry(13, .22, .22), holoSolid); j1.position.x = 4.5; jib.add(j1);
+    const j2 = new THREE.Mesh(new THREE.BoxGeometry(13, .1, .1), holoSolid); j2.position.set(4.5, .8, 0); jib.add(j2);
+    for (let k = 0; k < 7; k++) { const s = new THREE.Mesh(new THREE.BoxGeometry(.06, .8, .06), holoSolid); s.position.set(-1.5 + k * 2, .4, 0); jib.add(s); }
+    const cw = new THREE.Mesh(new THREE.BoxGeometry(1.4, .9, .9), holoSolid); cw.position.set(-1.6, -.2, 0); jib.add(cw);
+    const cable = new THREE.Mesh(new THREE.BoxGeometry(.04, 7, .04), holoSolid); cable.position.set(8.5, -3.5, 0); jib.add(cable);
+    const hook = new THREE.Mesh(new THREE.BoxGeometry(.9, .5, .9), holoSolid); hook.position.set(8.5, -7.2, 0); jib.add(hook);
+    const lamp = glow(0x5ee7ff, 3, .9); lamp.position.set(0, 1, 0); jib.add(lamp);
+    g.add(jib); jib.rotation.y = .5; scene.add(g);
+    buildCity.craneJib = jib;
+    const fl = label('FUTURE APPS', { color: '#bdf6ff', h: 2, bg: true, accent: 'rgba(94,231,255,.6)' }); fl.position.set(-31, 21.5, 31); scene.add(fl);
+  }
+  // district ground signs
+  [['TEAM', -31, -17.4, '#8ff5e6'], ['CHANNELS', 31, 19.2, '#f9a8d4'], ['BUSINESS', 0, 22.9, '#ffe2a6']].forEach(([t, x, z, c]) => {
+    const l = label(t + ' DISTRICT', { color: c, h: 1.25, bg: true }); l.position.set(x, 1.6, z); scene.add(l);
+  });
+
+  /* ---------- selection ring ---------- */
+  const ring = new THREE.Group(); ring.visible = false;
+  const ringA = new THREE.Mesh(new THREE.RingGeometry(.94, 1, 72), new THREE.MeshBasicMaterial({ color: 0x2dd4bf, transparent: true, opacity: .95, side: THREE.DoubleSide, depthWrite: false }));
+  const ringB = new THREE.Mesh(new THREE.RingGeometry(.6, .94, 72), new THREE.MeshBasicMaterial({ color: 0x2dd4bf, transparent: true, opacity: .13, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  ring.add(ringA, ringB); ring.rotation.x = -Math.PI / 2; ring.position.y = .3; scene.add(ring);
+
+  /* ---------- traffic: named futuristic pods ---------- */
+  function makePod(bodyColor, accent, name, parked) {
+    const g = new THREE.Group();
+    const hull = new THREE.Mesh(new THREE.CapsuleGeometry(.5, 1.5, 6, 14), new THREE.MeshStandardMaterial({ color: bodyColor, roughness: .22, metalness: .85, emissive: bodyColor, emissiveIntensity: .18 }));
+    hull.rotation.x = Math.PI / 2; hull.scale.set(1.15, 1, .62); g.add(hull);
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(.42, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x0b1530, roughness: .08, metalness: .9, emissive: 0x16335c, emissiveIntensity: .5 }));
+    canopy.scale.set(1, .75, 1.7); canopy.position.set(0, .22, .1); g.add(canopy);
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.22, .05, 2.1), new THREE.MeshBasicMaterial({ color: accent })); stripe.position.y = -.04; g.add(stripe);
+    const under = glow(accent, 2.6, .55); under.position.y = -.38; g.add(under);
+    const head = glow(0xfff3d1, 1.9, .95); head.position.set(0, 0, 1.25); g.add(head);
+    if (!parked) {
+      const tc = document.createElement('canvas'); tc.width = 8; tc.height = 64; const tg = tc.getContext('2d');
+      const gr = tg.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      tg.fillStyle = gr; tg.fillRect(0, 0, 8, 64);
+      const trail = new THREE.Mesh(new THREE.PlaneGeometry(.75, 6.5), new THREE.MeshBasicMaterial({ map: canvasTex(tc), color: accent, transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      trail.rotation.x = -Math.PI / 2; trail.position.set(0, -.1, -4.2); g.add(trail);
+    }
+    const l = label(name, { color: parked ? '#9ff3e6' : (name === 'RASHKA' ? '#ffe2a6' : '#e8ecff'), h: name === 'RASHKA' ? 1.25 : 1.0, bg: true, accent: name === 'RASHKA' ? 'rgba(233,180,76,.9)' : null });
+    l.position.y = 1.55; g.add(l);
+    return g;
+  }
+  const POD_NAMES = ['CLAUDE', 'CODEX', 'CHATGPT', 'GEMINI', 'GROK', 'DEEPSEEK', 'ELEVENLABS', 'KIMI', 'MAUSBOT CREW', 'RASHKA'];
+  const POD_TINT = [0xc9d6f2, 0x9fb6e8, 0xbfe9df, 0xb8c4ff, 0xd8dce8, 0xa9c9ff, 0xe3d3ff, 0xbfe3f5, 0x9be7d8];
+  function loopPoint(L, s, out) {            // rounded-square loop of half-size L, s in [0,1)
+    const per = 8 * L; let d = ((s % 1) + 1) % 1 * per;
+    if (d < 2 * L) return out.set(-L + d, 0, -L);
+    d -= 2 * L; if (d < 2 * L) return out.set(L, 0, -L + d);
+    d -= 2 * L; if (d < 2 * L) return out.set(L - d, 0, L);
+    d -= 2 * L; return out.set(-L, 0, L - d);
+  }
+  const pods = POD_NAMES.map((name, i) => {
+    const gold = name === 'RASHKA';
+    const mesh = makePod(gold ? 0xE9B44C : POD_TINT[i % POD_TINT.length], gold ? 0xffd38a : (i % 2 ? 0x2dd4bf : 0x7cc7ff), name, false);
+    if (gold) mesh.scale.setScalar(1.18);
+    scene.add(mesh);
+    const outer = i % 2 === 1 && !gold, dir = outer ? -1 : 1;
+    return { mesh, L: (outer ? 42 : 20) + dir * 1.05 * (outer ? -1 : 1), s: (i * .618) % 1, v: (outer ? .0125 : .021) * (gold ? .9 : (.85 + (i % 4) * .08)) * dir, ph: i * 1.7, yaw: 0 };
+  });
+
+  /* ---------- citizens: ~120 instanced strollers ---------- */
+  const CIT = 120;
+  const citGeo = new THREE.CapsuleGeometry(.2, .46, 3, 8);
+  const cit = new THREE.InstancedMesh(citGeo, new THREE.MeshStandardMaterial({ roughness: .8, emissive: 0x151830, emissiveIntensity: .6 }), CIT);
+  cit.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const citR = rng('citizens'), citData = [], tmpC = new THREE.Color();
+  const WALKS = [17.1, 22.9, 39.1, 44.9];
+  for (let i = 0; i < CIT; i++) {
+    const plaza = citR() < .42;
+    citData.push({ plaza, rad: 6 + citR() * 6.6, L: WALKS[Math.floor(citR() * WALKS.length)] - .25 + citR() * .5, s: citR(), v: (.004 + citR() * .006) * (citR() < .5 ? -1 : 1), ph: citR() * 6.28, bob: 4 + citR() * 3 });
+    tmpC.setHSL(citR(), .22 + citR() * .2, .5 + citR() * .22); cit.setColorAt(i, tmpC);
+  }
+  cit.castShadow = false; scene.add(cit);
+  const dummy = new THREE.Object3D(), v3 = new THREE.Vector3(), v3b = new THREE.Vector3();
+
+  /* ---------- picking + info panel ---------- */
+  const panel = $('#panel');
+  let selected = null;
+  function renderPanel() {
+    if (!selected) return;
+    const list = (ul, items, make) => { ul.innerHTML = ''; items.forEach((it) => ul.appendChild(make(it))); };
+    if (selected.kind === 'plot') {
+      const p = selected.plot;
+      $('#p-district').textContent = 'Future Apps'; $('#p-district').style.setProperty('--dot', '#5ee7ff');
+      $('#p-name').textContent = p.name; $('#p-role').textContent = p.note || '';
+      $('#s-stats').style.display = 'none'; $('#s-log').style.display = 'none'; $('#p-private').style.display = 'none'; $('#p-visit').style.display = 'none';
+      return;
+    }
+    const b = selected.b, st = STYLE[b.district] || { label: b.district, dot: '#2dd4bf' };
+    $('#p-district').textContent = st.label; $('#p-district').style.setProperty('--dot', st.dot);
+    $('#p-name').textContent = b.name; $('#p-role').textContent = b.role || '';
+    const hideMoney = mode === 'portfolio' && b.id === 'vault';
+    $('#p-private').style.display = hideMoney ? 'flex' : 'none';
+    const stats = hideMoney ? [] : (b.stats || []), log = hideMoney ? [] : (b.log || []);
+    $('#s-stats').style.display = stats.length ? '' : 'none';
+    $('#s-log').style.display = log.length ? '' : 'none';
+    list($('#p-stats'), stats, (s) => { const li = document.createElement('li'); li.textContent = s; return li; });
+    list($('#p-log'), log, (e) => { const li = document.createElement('li'); const t = document.createElement('time'); t.textContent = e.d; const sp = document.createElement('span'); sp.textContent = e.t; li.append(t, sp); return li; });
+    const visit = $('#p-visit');
+    if (b.link) { visit.href = b.link; visit.style.display = 'flex'; } else { visit.removeAttribute('href'); visit.style.display = 'none'; }
+  }
+  function select(rec) {
+    selected = rec;
+    if (!rec) { panel.classList.remove('open'); ring.visible = false; return; }
+    ring.visible = true; ring.position.set(rec.x, .3, rec.z); ring.scale.setScalar(rec.ring);
+    const col = rec.kind === 'plot' ? 0x5ee7ff : (rec.b.id === 'muse-hq' || rec.b.id === 'vault' || rec.b.id === 'lighthouse' ? 0xE9B44C : 0x2dd4bf);
+    ringA.material.color.setHex(col); ringB.material.color.setHex(col);
+    renderPanel(); panel.scrollTop = 0; panel.classList.add('open'); $('#hint').classList.add('gone');
+  }
+  $('#panel .x').addEventListener('click', () => select(null));
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); select(null); } });
+
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let down = null;
+  canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  canvas.addEventListener('pointerup', (e) => {
+    if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null;
+    if (moved > 7 || dt > 600) return;
+    ptr.set(e.clientX / window.innerWidth * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    select(hit ? hit.object.userData.rec : null);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse' || e.buttons) return;
+    ptr.set(e.clientX / window.innerWidth * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    canvas.style.cursor = ray.intersectObjects(pickables, false).length ? 'pointer' : 'grab';
+  });
+
+  /* ---------- HQ / Portfolio ---------- */
+  function setMode(m) {
+    mode = m; $('#mode').dataset.mode = m;
+    document.querySelectorAll('#mode button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    for (const bc of beacons) bc.g.visible = m === 'hq';
+    renderPanel();
+  }
+  document.querySelectorAll('#mode button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+  /* ---------- resize ---------- */
+  function onResize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h); camera.aspect = w / h; camera.fov = w < 760 ? 58 : 46; camera.updateProjectionMatrix();
+    if (w < 760 && h > w) { controls.minDistance = 40; if (camera.position.length() < 120) camera.position.setLength(150); }
+  }
+  window.addEventListener('resize', onResize); onResize();
+
+  /* ---------- test + integrity hooks (read-only) ---------- */
+  window.RASHKAPOLIS = {
+    counts: { buildings: byId.size, plots: plotRecs.length, pods: pods.length, citizens: CIT, beacons: beacons.length },
+    skyline: { spireTip: spireTop, nextHighest: skylineTop },
+    select: (id) => select(byId.get(id) || null), selectPlot: (i) => select(plotRecs[i] || null),
+    setMode, beaconsVisible: () => beacons.filter((b) => b.g.visible).length
+  };
+
+  /* ---------- animate ---------- */
+  const clock = new THREE.Clock(); let hintGone = false;
+  function tick() {
+    const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+    controls.update();
+    const lh = byId.get('lighthouse'); if (lh && lh.beams) lh.beams.rotation.y = t * .32;
+    const nt = byId.get('muse-hq'); if (nt && nt.pulse) nt.pulse.material.opacity = .75 + .25 * Math.sin(t * 2.2);
+    if (buildCity.craneJib) buildCity.craneJib.rotation.y = .5 + Math.sin(t * .12) * .7;
+    for (const f of flickers) f.mat.emissiveIntensity = f.base * (1 + .05 * Math.sin(t * f.f + f.p) + .025 * Math.sin(t * f.f * 3.7 + f.p * 2));
+    for (const bc of beacons) if (bc.pulse) { const k = .5 + .5 * Math.sin(t * 2.6 + bc.phase); bc.s.scale.setScalar(.8 + .45 * k); bc.halo.material.opacity = .35 + .65 * k; }
+    for (const p of pods) {
+      p.s += p.v * dt * 1.6; loopPoint(p.L, p.s, v3); loopPoint(p.L, p.s + Math.sign(p.v) * .004, v3b);
+      p.mesh.position.set(v3.x, .95 + Math.sin(t * 1.8 + p.ph) * .08, v3.z);
+      const yaw = Math.atan2(v3b.x - v3.x, v3b.z - v3.z); let dy = yaw - p.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); p.yaw += dy * Math.min(1, dt * 7);
+      p.mesh.rotation.y = p.yaw;
+    }
+    for (let i = 0; i < CIT; i++) {
+      const c = citData[i]; c.s += c.v * dt * (c.plaza ? 2.2 : 1);
+      if (c.plaza) { const a = c.s * Math.PI * 2; v3.set(Math.cos(a) * c.rad, 0, Math.sin(a) * c.rad); } else loopPoint(c.L, c.s, v3);
+      dummy.position.set(v3.x, (c.plaza ? .25 : .22) + .43 + Math.abs(Math.sin(t * c.bob + c.ph)) * .06, v3.z);
+      dummy.updateMatrix(); cit.setMatrixAt(i, dummy.matrix);
+    }
+    cit.instanceMatrix.needsUpdate = true;
+    if (selected) { ring.rotation.z = t * .4; ringA.material.opacity = .7 + .25 * Math.sin(t * 3); }
+    if (!hintGone && t > 9) { hintGone = true; $('#hint').classList.add('gone'); }
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+</script>
+</body>
+</html>
