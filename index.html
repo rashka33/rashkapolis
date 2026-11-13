@@ -4,8 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0b1026">
-<title>RASHKAPOLIS — A city that grows with everything we build</title>
-<meta name="description" content="Rashkapolis: a living 3D city where every tower is a real project, desk or channel.">
+<title>Rashkapolis — a city that grows with everything we build</title>
+<meta name="description" content="A living 3D city where every tower is a real project, desk or channel. Explore the skyline, take the guided tour and watch it grow.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-48.png" sizes="48x48" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Rashkapolis">
+<meta property="og:title" content="Rashkapolis — a city that grows with everything we build">
+<meta property="og:description" content="A living 3D city where every tower is a real project, desk or channel. Explore the skyline, take the guided tour and watch it grow.">
+<meta property="og:image" content="https://rashka33.github.io/rashkapolis/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Rashkapolis skyline at dusk, with Nuur Tower and the Owner's Lighthouse at the centre.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Rashkapolis — a city that grows with everything we build">
+<meta name="twitter:description" content="A living 3D city where every tower is a real project, desk or channel.">
+<meta name="twitter:image" content="https://rashka33.github.io/rashkapolis/og-image.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -1373,32 +1388,101 @@ function buildCity() {
     for (const m of [carBody, carCab, carHead, carTail, carPool]) m.instanceMatrix.needsUpdate = true;
   }
 
-  /* ---------- guided tour ---------- */
-  let tour = null;
-  function tourStops() {
-    const top = (d) => (CITY.buildings.filter((b) => b.district === d && b.id !== 'muse-hq').sort((a, b) => b.floors - a.floors)[0] || {}).id;
-    return [...new Set(['lighthouse', top('team'), 'vault', top('channels'), 'muse-hq'])].map((id) => byId.get(id)).filter(Boolean);
+  /* ---------- guided tour: the anthem is the clock, each narration clip starts on arrival ----------
+     Audio is streamed from tour-audio/ beside the page. The voice is never sped up, cut or overlapped:
+     the camera holds until a clip has ended, and the flights stretch or shrink to land on the song's end. */
+  const TOUR = { dir: 'tour-audio/', ext: ['.mp3', '.m4a'], anthem: 'anthem', length: 90, duck: .25,
+    stops: [['lighthouse', 'tour-01-lighthouse', 13], ['academy', 'tour-02-academy', 10.3], ['muse-hq', 'tour-03-nuur-tower', 8.7], ['vault', 'tour-04-vault', 9],
+      ['mausbot', 'tour-05-mausbot', 8], ['know-you-know', 'tour-06-know-you-know', 8], ['little-hero-ig', 'tour-07-little-hero-tales', 8.7], ['future', 'tour-08-future-apps', 11.2]] };
+  let tour = null, tourLog = [], anthem = null, narr = null, anthemGain = null;
+  function poseFor(rec) {
+    const top = rec.top || 12, tgt = new THREE.Vector3(rec.x, Math.min(top * .42, 24), rec.z);
+    const dir = new THREE.Vector3(rec.x, 0, rec.z); if (dir.length() < 2) dir.set(HOME.p.x, 0, HOME.p.z); dir.normalize();
+    const dist = clamp(top * 1.2 + (phoneNow() ? 50 : 34), 50, 124), e = .4;
+    return { p: tgt.clone().add(new THREE.Vector3(dir.x * Math.cos(e), Math.sin(e), dir.z * Math.cos(e)).multiplyScalar(dist)), t: tgt };
   }
+  function setSrc(a, name) { a._name = name; a._k = 0; a._dead = false; a._live = false; a.src = TOUR.dir + name + TOUR.ext[0]; a.load(); }
+  function mkAudio() {
+    const a = new Audio(); a.preload = 'auto';
+    a.addEventListener('error', () => { if (++a._k < TOUR.ext.length) { a.src = TOUR.dir + a._name + TOUR.ext[a._k]; a.load(); if (a._want) a.play().catch(() => {}); } else a._dead = true; });   // try the next file type, then give up quietly
+    a.addEventListener('playing', () => { a._live = true; });
+    a.addEventListener('ended', () => { if (tour) stepTour(); });        // react the instant a clip finishes, not on the next frame
+    return a;
+  }
+  function duck(v) {
+    if (!anthem) return; tour && (tour.vol = v);
+    if (anthemGain) anthemGain.gain.setTargetAtTime(v, AC.currentTime, .18); else anthem.volume = v;
+  }
+  const tourClock = () => { const now = performance.now(); if (anthem && anthem._live && !anthem.paused && !anthem.ended) tour.t0 = now - anthem.currentTime * 1000; return (now - tour.t0) / 1000; };
   function startTour() {
     stopAll(); closeSheets(); select(null);
-    tour = { stops: tourStops(), i: -1, timer: 0 }; document.body.classList.add('immersive'); capStop = () => endTour(true); tourNext();
+    const stops = [];
+    for (const [id, file, dur] of TOUR.stops) {
+      const rec = id === 'future' ? (plotRecs.length ? { x: -40.5, z: 40.5, top: 18, ring: 14, name: 'Future Apps' } : null) : byId.get(id);
+      if (rec) stops.push({ rec, file, dur, name: rec.name || rec.b.name, pose: poseFor(rec) });
+    }
+    if (!stops.length) return;
+    try { audio(); } catch (e) { /* no Web Audio: fall back to plain elements */ }
+    if (!anthem) {
+      anthem = mkAudio(); narr = mkAudio();
+      // iPhones ignore element volume, so the anthem runs through a gain node when the page is hosted
+      if (AC && /^https?:$/.test(location.protocol)) try { const s = AC.createMediaElementSource(anthem); anthemGain = AC.createGain(); s.connect(anthemGain); anthemGain.connect(AC.destination); } catch (e) { anthemGain = null; }
+    }
+    setSrc(anthem, TOUR.anthem); anthem._want = true; anthem.loop = false; anthem.play().catch(() => {});
+    // unlock the narration element inside this tap, silently, so later clips are allowed to start on their own
+    setSrc(narr, stops[0].file); narr._want = false; narr.muted = true;
+    narr.play().then(() => { if (tour && tour.phase !== 'hold') { narr.pause(); narr.currentTime = 0; } narr.muted = false; }).catch(() => { narr.muted = false; });
+    tourLog = [];
+    tour = { stops, i: 0, phase: 'fly', t0: performance.now(), vol: 1, home: stops[0].pose };
+    controls.enabled = false; controls.autoRotate = false; clearTimeout(idleTimer); fly = null;
+    document.body.classList.add('immersive'); capStop = () => endTour(true); duck(1); tourDepart(0);
+    tour.tick = setInterval(() => { if (tour) stepTour(); }, 33);     // its own clock, so a slow frame never delays the voice
   }
-  function tourNext() {
-    if (!tour) return; clearTimeout(tour.timer);
-    const T = tour, rec = T.stops[++T.i]; if (!rec) return endTour(true);
-    caption(''); mark(null);
-    flyTo(rec, { dur: 2.6, done: () => {
-      if (tour !== T) return; mark(rec);
-      caption(rec.b.name + ' — ' + (rec.b.role || ''), T.i === T.stops.length - 1 ? 'Finish' : 'Skip tour');
-      T.timer = setTimeout(tourNext, 7000);
-    } });
+  function tourDepart(i) {
+    const T = tourClock(), S = tour.stops; let rest = 0; for (let k = i; k < S.length; k++) rest += S[k].dur;
+    // share the time left before the song ends between the flights still to come, by distance
+    let w = 0, w0 = 0, prev = controls.target;
+    for (let k = i; k < S.length; k++) { const d = 20 + prev.distanceTo(S[k].pose.t); if (k === i) w0 = d; w += d; prev = S[k].pose.t; }
+    const end = anthem && anthem._live && isFinite(anthem.duration) && anthem.duration > 30 ? anthem.duration : TOUR.length;      // the song's real length once it is known
+    const f = Math.max(.8, (end - T - rest) * w0 / w);
+    tour.i = i; tour.phase = 'fly'; tour.f0 = T; tour.f1 = T + f; tour.from = { p: camera.position.clone(), t: controls.target.clone() }; tour.to = S[i].pose;
+    caption(''); mark(null); tourLog.push({ stop: S[i].name, depart: +T.toFixed(2), flight: +f.toFixed(2) });
+  }
+  function tourPose(a, b, k) {
+    const e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    camera.position.lerpVectors(a.p, b.p, e); camera.position.y += Math.sin(Math.PI * e) * 8; controls.target.lerpVectors(a.t, b.t, e);
+  }
+  function stepTour() {
+    const T = tourClock(), S = tour.stops, st = S[tour.i], L = tourLog[tourLog.length - 1], last = tour.i === S.length - 1;
+    if (tour.phase === 'fly') {
+      const k = Math.min(1, (T - tour.f0) / (tour.f1 - tour.f0)); tourPose(tour.from, tour.to, k);
+      if (k >= 1) {                                         // arrived: the clip starts now
+        tour.phase = 'hold'; tour.clipAt = T; L.arrive = +T.toFixed(2);
+        setSrc(narr, st.file); narr.muted = false; narr._want = true; narr.currentTime = 0; narr.play().catch(() => { narr._dead = true; });
+        duck(TOUR.duck); caption(st.name, 'Skip tour'); if (st.rec.b) mark(st.rec);
+      }
+      return;
+    }
+    // how long this clip really is: the file's own length once known, the listed length otherwise
+    const dur = narr._live && isFinite(narr.duration) && narr.duration > 0 ? narr.duration : st.dur;
+    const over = narr._live ? narr.ended : T >= tour.clipAt + (narr._dead || T - tour.clipAt > 2.5 ? st.dur : 1e9);
+    if (tour.phase === 'hold') {
+      if (last) {                                           // final clip: glide home so the camera settles as the voice and the song end
+        const R = Math.min(4, dur * .4), left = narr._live ? dur - narr.currentTime : tour.clipAt + dur - T;
+        if (left <= R) { tour.phase = 'return'; tour.f0 = T; tour.f1 = T + Math.max(.3, left); tour.from = { p: camera.position.clone(), t: controls.target.clone() }; mark(null); L.returnStart = +T.toFixed(2); }
+      } else if (over) { L.clipEnd = +T.toFixed(2); duck(1); tourDepart(tour.i + 1); }
+      return;
+    }
+    const k = Math.min(1, (T - tour.f0) / (tour.f1 - tour.f0)); tourPose(tour.from, tour.home, k);
+    if (k >= 1 && over) { L.clipEnd = +T.toFixed(2); L.settled = +T.toFixed(2); L.audio = narr._live; endTour(false); }
   }
   function endTour(home) {
-    if (!tour) return; clearTimeout(tour.timer); tour = null; store.set('tour', 1);
-    caption(''); mark(null); document.body.classList.remove('immersive'); capStop = null;
+    if (!tour) return; clearInterval(tour.tick); tour = null; store.set('tour', 1);
+    if (narr) { narr._want = false; narr.pause(); }
+    if (anthem) { anthem._want = false; const a = anthem; if (!a.ended) { duck(0); setTimeout(() => { if (!tour) a.pause(); }, 500); } }
+    caption(''); mark(null); document.body.classList.remove('immersive'); capStop = null; controls.enabled = true;
     if (home) flyCam(HOME.p.clone(), HOME.t.clone(), 2.2, () => rest(3000)); else rest(6000);
   }
-  controls.addEventListener('start', () => { if (tour) endTour(false); });
 
   /* ---------- street level ---------- */
   let walk = null, drag = null;
@@ -1928,7 +2012,7 @@ function buildCity() {
       f.append(b);
     }
   }
-  item('Take the tour', 'A guided flight around the city', startTour);
+  item('Take the tour', '90 seconds, with the anthem and a narrator', startTour);
   item('Ask the Mayor', 'Answers only from the city records', openMayor);
   item('Walk the streets', 'See the towers from the pavement', startWalk);
   item('Play the city song', 'Music made from the city numbers', playSong);
@@ -1959,7 +2043,11 @@ function buildCity() {
   const deep = /^#b=([\w-]+)/.exec(location.hash), deepRec = deep && byId.get(deep[1]);
   if (location.hash === '#plain') openPlain();
   else if (deepRec) setTimeout(() => flyTo(deepRec), 500);
-  else if (!store.get('tour') && !changes.length && !navigator.webdriver && !matchMedia('(prefers-reduced-motion: reduce)').matches) setTimeout(() => { if (!selected && !fly && !walk && !box.classList.contains('open') && !menu.classList.contains('open')) startTour(); }, 1600);
+  else if (!store.get('tour') && !changes.length && !navigator.webdriver) setTimeout(() => {      // sound needs a tap, so the first visit offers the tour instead of starting it
+    if (selected || fly || walk || tour || box.classList.contains('open') || menu.classList.contains('open')) return;
+    caption('Take the 90-second guided tour, with music and a narrator?', 'Start tour'); capStop = startTour;
+    setTimeout(() => { if (capStop === startTour) { caption(''); capStop = null; } }, 15000);
+  }, 1800);
 
   /* ---------- per-frame work + automatic quality: drop resolution if a phone cannot keep up ---------- */
   let qT = performance.now(), qN = 0, qLevel = renderer.getPixelRatio();
@@ -1971,7 +2059,7 @@ function buildCity() {
     }
   }
   const v12 = {
-    opening, startTour, endTour, tourOn: () => !!tour, startWalk, endWalk, walking: () => !!walk, ask, mayor, playSong, stopSong,
+    opening, startTour, endTour, tourOn: () => !!tour, tourLog: () => tourLog, tourState: () => tour && ({ i: tour.i, phase: tour.phase, vol: tour.vol, T: +tourClock().toFixed(2) }), startWalk, endWalk, walking: () => !!walk, ask, mayor, playSong, stopSong,
     sky: (ms, lat, lon, live) => { if (lat != null) geo = { lat, lon, exact: true }; if (live != null) liveSky = live; return updateSky(ms); },
     weather: applyWeather, snapshot: applySnap, goals: toggleGoals, usdz: () => buildUsdz().then((u) => u.length), shareCard: () => shareCard().toDataURL('image/png').length,
     seal, unseal, openTime, openCapsules, openPlain, openMayor, changes: () => changes.slice(), dock: (name) => { const p = pods.find((q) => q.name === name); if (p) p.wait = 0; },
